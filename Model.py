@@ -22,6 +22,7 @@ Ds_r = 0 #fraction of defectors of the rich individuals
 Ds_p = 1 #fraction of defectors of the poor individuals
 
 c = 0.25 #fraction of the endowment contributed by the cooperators (Cs) to help solve the group task (contributions)
+        #must be inferior to 1, b and br
 
 lost_Cs_r = br*(1-c) #Lost of the rich Cs if next intermediate target is not meet
 lost_Cs_p = bp*(1-c) #Lost of the poor Cs if next intermediate target is not meet
@@ -32,4 +33,7 @@ c_tot = ((c * br) * Cs_r) + ((c * bp) * Cs_p) #Total amount of contributions
 
 Mcb = 1 #Threshold  for the target to be met
 
-b = br + bp #Average endowment of the population
+b = (br + bp) / 2 #Average endowment of the population
+
+r = 0 #Perception of risk (varying between 0 and 1)
+
