@@ -47,9 +47,29 @@ lost_Ds_r = br #Lost of the rich Ds if next intermediate target is not meet
 lost_Ds_p = bp #Lost of the poor Ds if next intermediate target is not meet
 
 
-
 Mcb = 1 #Threshold  for the target to be met
 
 r = 0 #Perception of risk (varying between 0 and 1)
 
-##### Calculating payoffs
+
+
+############## Functions
+
+def O_(k):
+    res = 0
+    if k >=0:
+        res = 1
+    return res
+
+
+############## Main Code
+
+# Calculating payoffs
+
+delta = cr*Jr + cp*Jp - Mcb
+
+P_D_R = br*(O_(delta)+(1-r)*(1-O_(delta))) #Payoff for a rich Ds
+P_D_P = bp*(O_(delta)+(1-r)*(1-O_(delta))) #Payoff for a poor Ds
+# P_C_R = P_C_R - cr #Payoff for a rich Cs    === Find the initial P_C_R and P_C_P
+# P_C_P = P_C_P  - cp #Payoff for a poor Cs
+
