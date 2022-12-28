@@ -90,5 +90,19 @@ F_C_P = 0    ### A compléter
 F_D_P = 0
 
 
+# Evolution in time of the number of individuals adopting a given strategy
+#==== gain-loss equation involving the transition rates between all accessible configurations
 
+
+# Stationary distribution
+#==== obtained by reducing the master equation to an eigenvector search problem
+
+
+#Compute the most likely path the population will follow, resorting the probability to increase (decrease) the number of individuals adopting a strategy
+
+
+#Compute the fraction of group that reach a total Mcb in contributions== successfully achieve the public good (ag(i))
+
+
+#Compute the average group achievment (ng) = averaging over all possibles configurations i, each weighted with the corresponding stationary distribution
 
