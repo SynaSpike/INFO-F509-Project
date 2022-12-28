@@ -84,5 +84,11 @@ ir = 0
 ip = 0
 i = [ir,ip] #given configuration of strategies and wealth classes == à compléter
 
+F_C_R = 0
+F_D_R = 0
+F_C_P = 0    ### A compléter
+F_D_P = 0
+
+
 
 
