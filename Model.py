@@ -51,6 +51,10 @@ Mcb = 1 #Threshold  for the target to be met
 
 r = 0 #Perception of risk (varying between 0 and 1)
 
+h = 0 #Homophily parameter (varying between 0 and 1)
+        #When h = 1, individuals are restricted to influence by those of the same wealth status
+        #When h = 0, no wealth discrimination takes place
+
 
 
 ############## Functions
