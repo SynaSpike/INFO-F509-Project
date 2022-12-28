@@ -11,6 +11,7 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 Z = 6 #Number of individuals
 Zr = 3 #Number of rich individuals
 Zp = Z - Zr #Number of poor individuals
+N = 0 #Individuals are randomly sampled from the population and organize into groups of size N == a compléter
 
 #Initial endowment
 br = 1 #Initial endowment of the rich
@@ -76,6 +77,12 @@ P_D_R = br*(O_(delta)+(1-r)*(1-O_(delta))) #Payoff for a rich Ds
 P_D_P = bp*(O_(delta)+(1-r)*(1-O_(delta))) #Payoff for a poor Ds
 P_C_R = P_D_R - cr #Payoff for a rich Cs    === il y a une erreur dans le MM mais c'est corrigé dans S1 text
 P_C_P = P_D_P - cp #Payoff for a poor Cs
+
+# Calculating the average payoff of a given strategy
+
+ir = 0
+ip = 0
+i = [ir,ip] #given configuration of strategies and wealth classes == à compléter
 
 
 
