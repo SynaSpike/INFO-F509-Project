@@ -96,7 +96,7 @@ i = [ir,ip] #given configuration of strategies and wealth classes == à complét
 
 F_C_R = 0
 F_D_R = 0
-F_C_P = 0    ### A compléter
+F_C_P = 0    ### A compléter avec la fonction multivariate_hypergeometric_sampling(ir,ip)
 F_D_P = 0
 
 
