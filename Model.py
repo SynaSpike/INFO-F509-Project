@@ -83,7 +83,7 @@ def multivariate_hypergeometric_sampling(ir,ip):
 
 delta = cr*Jr + cp*Jp - Mcb
 
-P_D_R = br*(O_(delta)+(1-r)*(1-O_(delta))) #Payoff for a rich Ds
+P_D_R = br*(O_(delta)+(1-r)*(1-O_(delta))) #Payoff for a rich Ds   ### Sûrement à passer en fonction
 P_D_P = bp*(O_(delta)+(1-r)*(1-O_(delta))) #Payoff for a poor Ds
 P_C_R = P_D_R - cr #Payoff for a rich Cs    === il y a une erreur dans le MM mais c'est corrigé dans S1 text
 P_C_P = P_D_P - cp #Payoff for a poor Cs
