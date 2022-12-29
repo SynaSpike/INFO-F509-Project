@@ -6,10 +6,14 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 """
 
 from egttools import AbstractNPlayerGame
+import numpy as np
+from . import PGGStrategy
+
+
 
 class PGG(AbstractNPlayerGame):
 
-    def __init__(self, group_size: int, nb_rich:int, fraction_endowment: float, strategies: List[PGGstrat]):
+    def __init__(self, group_size: int, nb_rich:int, fraction_endowment: float, strategies: List[PGGStrategy]) -> None:
 
         AbstractNPlayerGame.__init__(self, len(strategies), group_size)
         self.group_size_ = group_size  # Z
@@ -18,5 +22,8 @@ class PGG(AbstractNPlayerGame):
         self.fraction_endowment = fraction_endowment  # c
         self.strategies = ['Defect', 'Cooperate']
 
+    def play(self, ) -> None:
 
+
+    def calculate_payoffs(self) -> np.ndarray:
 
