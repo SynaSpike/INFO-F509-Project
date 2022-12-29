@@ -72,7 +72,7 @@ def multivariate_hypergeometric_sampling(ir,ip):
     for jr in range(0,(N-1)):
         for jp in range (0,(N-1-jr)):
             a = scipy.special.binom((ir - 1), (jr)) * scipy.special.binom((ip), (jp)) * scipy.special.binom((Z-ir-ip), (N-1-jr-jp)) * P_D_R
-    res = scipy.special.binom((Z - 1), (N - 1)) * a
+    res = ((scipy.special.binom((Z - 1), (N - 1)))**-1) * a
     return res
 
 
