@@ -5,6 +5,8 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 (doi:10.1073/pnas.1323479111) Crossref, PubMed, ISI, Google Scholar
 """
 
+import scipy.special
+
 ################## Global variables
 
 #Population size
@@ -65,6 +67,14 @@ def O_(k):
     if k >=0:
         res = 1
     return res
+
+def multivariate_hypergeometric_sampling(ir,ip):
+    for jr in range(0,(N-1)):
+        for jp in range (0,(N-1-jr)):
+            a = scipy.special.binom((ir - 1), (jr)) * scipy.special.binom((ip), (jp)) * scipy.special.binom((Z-ir-ip), (N-1-jr-jp)) * P_D_R
+    res = scipy.special.binom((Z - 1), (N - 1)) * a
+    return res
+
 
 
 ############## Main Code
