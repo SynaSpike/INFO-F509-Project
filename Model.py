@@ -5,5 +5,25 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 (doi:10.1073/pnas.1323479111) Crossref, PubMed, ISI, Google Scholar
 """
 
+from egttools import AbstractNPlayerGame
+import numpy as np
+from . import PGGStrategy
 
-test
+
+
+class PGG(AbstractNPlayerGame):
+
+    def __init__(self, group_size: int, nb_rich:int, fraction_endowment: float, strategies: List[PGGStrategy]) -> None:
+
+        AbstractNPlayerGame.__init__(self, len(strategies), group_size)
+        self.group_size_ = group_size  # Z
+        self.Zr = nb_rich  # Zr
+        self.Zp = group_size - nb_rich  # Zp
+        self.fraction_endowment = fraction_endowment  # c
+        self.strategies = ['Defect', 'Cooperate']
+
+    def play(self, ) -> None:
+
+
+    def calculate_payoffs(self) -> np.ndarray:
+
