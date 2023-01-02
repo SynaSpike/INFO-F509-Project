@@ -6,20 +6,22 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 '''
 
 from math import factorial as fact
+from math import exp
+from random import randint
 
 ################## Global variables
 
 #Population size
-Z = 100 #Number of individuals in the population
-Zr = 20 #Number of rich individuals in the population
+Z = 200 #Number of individuals in the population
+Zr = 40 #Number of rich individuals in the population
 Zp = Z - Zr #Number of poor individuals in the population
-N = 10 #groups of size N
-Nr = 2 #Number of rich individuals in each group
-Np = 8 #Number of poor individuals in each group
+N = 6 #groups of size N
+Nr = Zr/N #Number of rich individuals in each group
+Np = Zp/N #Number of poor individuals in each group
 
 #Initial endowment (br > bp)
-br = 50 #Initial endowment of the rich
-bp = 20 #Initial endowment of the poor
+br = 2.5 #Initial endowment of the rich
+bp = 0.625 #Initial endowment of the poor
 
 
 b_hat = (br*Zr + bp*Zp) / Z #Average endowment of the population
@@ -30,6 +32,10 @@ F_cp = 0.5 #fraction of cooperators of the poor individuals
 
 Ir = int(F_cr * Zr) #nbr rich Cs in the population
 Ip = int(F_cp * Zp) #nrb of poor Cs in the population
+Icr = int(F_cr * Zr) #nbr rich Cs in the population
+Icp = int(F_cp * Zp) #nrb of poor Cs in the population
+Idr = int((1-F_cr) * Zr) #nbr rich Ds in the population
+Idp = int((1-F_cp)*Zp) #nbr poor Ds in the population
 
 Jr = int(F_cr * Nr) #nbr rich Cs in each group
 Jp = int(F_cp * Np) #nbr rich Cs in each group
@@ -81,41 +87,94 @@ def binom(n,r):
     '''binomila product'''
     return fact(n)//fact(r)//fact(n-r)
 
-def mhs_CR(ir=Ir,ip=Ip,Cr=Cr,Z=Z,N=N):
+
+def fitness(wealth, strat, ir=Ir,ip=Ip,Cr=Cr,Z=Z,N=N):
     '''fitness for rich cooperator'''
     res = 0
-    for jr in range(0,(N)):
-        for jp in range (0,(N-jr)):
-            P_C_R = payoff_DR(Jr=jr+1, Jp=jp) - Cr
-            res += binom(ir - 1, jr) * binom(ip, jp) * binom(Z-ir-ip, N-1-jr-jp) * P_C_R
-    return res * (binom(Z-1,N-1))**(-1)
+    if wealth == 'R' and strat == 'C':
+        for jr in range(0,(N)):
+            for jp in range (0,(N-jr)):
+                P_C_R = payoff_DR(Jr=jr+1, Jp=jp) - Cr
+                res += binom(ir - 1, jr) * binom(ip, jp) * binom(Z-ir-ip, N-1-jr-jp) * P_C_R
+        return res * (binom(Z-1,N-1))**(-1)
+    elif wealth == 'P' and strat == 'C':
+        for jr in range(0, (N)):
+            for jp in range(0, (N - jr)):
+                P_C_P = payoff_DP(Jr=jr, Jp=jp + 1) - Cp
+                res += binom(ir, jr) * binom(ip - 1, jp) * binom(Z - ir - ip, N - 1 - jr - jp) * P_C_P
+        return res * (binom(Z - 1, N - 1)) ** (-1)
+    elif wealth == 'R' and strat == 'D':
+        for jr in range(0, (N)):
+            for jp in range(0, (N - jr)):
+                P_D_R = payoff_DR(Jr=jr, Jp=jp)
+                res += binom(ir, jr) * binom(ip, jp) * binom(Z - 1 - ir - ip, N - 1 - jr - jp) * P_D_R
+        return res * (binom(Z - 1, N - 1)) ** (-1)
+    elif wealth == 'P' and strat == 'D':
+        for jr in range(0, (N)):
+            for jp in range(0, (N - jr)):
+                P_D_P = payoff_DP(Jr=jr, Jp=jp)
+                res += binom(ir, jr) * binom(ip, jp) * binom(Z - 1 - ir - ip, N - 1 - jr - jp) * P_D_P
+        return res * (binom(Z - 1, N - 1)) ** (-1)
 
-def mhs_DR(ir=Ir,ip=Ip,Z=Z,N=N):
-    '''fitness for rich defector'''
-    res = 0
-    for jr in range(0,(N)):
-        for jp in range (0,(N-jr)):
-            P_D_R = payoff_DR(Jr=jr, Jp=jp)
-            res += binom(ir, jr) * binom(ip, jp) * binom(Z-1-ir-ip, N-1-jr-jp) * P_D_R
-    return res * (binom(Z-1,N-1))**(-1)
 
-def mhs_CP(ir=Ir,ip=Ip,Cp=Cp,Z=Z,N=N):
-    '''fitness for poor cooperator'''
-    res = 0
-    for jr in range(0,(N)):
-        for jp in range (0,(N-jr)):
-            P_C_P =  payoff_DP(Jr=jr, Jp=jp+1) - Cp
-            res += binom(ir, jr) * binom(ip-1, jp) * binom(Z-ir-ip, N-1-jr-jp) * P_C_P
-    return res * (binom(Z-1,N-1))**(-1)
+def fermi(beta, strategy):
+    '''
+    Under pairwise comparison, each individual
+of strategy X adopts the strategy Y of a randomly selected
+member of the population, with probability given by the Fermi
+function
+    :param beta: control the intensity of the selection
+    :param strategy: rich Cs (RC), poor Cs (PC), rich Ds (RD), or poor Ds (PD)
+    :return: probability
+    '''
+    strat_pop = ['PC','PD','RC','RD']
+    strat = strat_pop[randint(0,4)]
 
-def mhs_DP(ir=Ir,ip=Ip,Z=Z,N=N):
-    '''fitness for poor defector'''
-    res = 0
-    for jr in range(0,(N)):
-        for jp in range (0,(N-jr)):
-            P_D_P = payoff_DP(Jr=jr, Jp=jp)
-            res += binom(ir, jr) * binom(ip, jp) * binom(Z-1-ir-ip, N-1-jr-jp) * P_D_P
-    return res * (binom(Z-1,N-1))**(-1)
+    if strategy == 'PC':
+        res = 1 + exp(beta * (fitness(wealth='P',strat='C')-fitness(strat[0],strat[1])))**(-1)
+    elif strategy == 'PD':
+        res = 1 + exp(beta * (fitness(wealth='P',strat='D')-fitness(strat[0],strat[1])))**(-1)
+
+    elif strategy == 'RC':
+        res = 1 + exp(beta * (fitness(wealth='R',strat='C')-fitness(strat[0],strat[1])))**(-1)
+
+    elif strategy == 'RD':
+        res = 1 + exp(beta * (fitness(wealth='R',strat='D')-fitness(strat[0],strat[1])))**(-1)
+
+    return res
+
+def transition(k,X,u=0.5,beta=3):
+    '''
+    The transition probabilities gives the probability that an individual
+    with strategy X ∈ C;D in the subpopulation k ∈ R;P changes
+    to a different strategy Y ∈ C;D, both from the same subpopulation k
+    and from the other population l (that is, l = P if k = R, and l = R if k = P)
+    :param k: rich or poor {'R','P'}
+    :param X: cooperator or defector {'C','D'}
+    :param u: mutation probability μ
+    :param beta: β controls the intensity of selection
+    :return: transition probabilities from a strategy X to Y
+    '''
+    if k == 'R'and X == 'C':
+        a = (Idr/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness(wealth='R',strat='C')-fitness(wealth='R',strat='D'))**(-1)))
+        b = ((1-h)*Idp/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness(wealth='R',strat='C')-fitness(wealth='P',strat='D'))**(-1)))
+        return Icr/ Z * ((1-u)*(a+b)+u)
+
+    elif k == 'R'and X == 'D':
+        a = (Icr / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness(wealth='R', strat='D') - fitness(wealth='R', strat='C')) ** (-1)))
+        b = ((1 - h) * Icp / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness(wealth='R', strat='D') - fitness(wealth='P', strat='C')) ** (-1)))
+        return Idr / Z * ((1-u)*(a+b)+u)
+
+    elif k == 'P'and X == 'C':
+        a = (Idp/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness(wealth='P',strat='C')-fitness(wealth='P',strat='D'))**(-1)))
+        b = ((1-h)*Icr/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness(wealth='P',strat='C')-fitness(wealth='R',strat='D'))**(-1)))
+        return Icp / Z * ((1-u)*(a+b)+u)
+
+    elif k == 'P'and X == 'D':
+        a = (Icp/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness(wealth='P',strat='D')-fitness(wealth='P',strat='C'))**(-1)))
+        b = ((1-h)*Icr/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness(wealth='P',strat='D')-fitness(wealth='R',strat='C'))**(-1)))
+        return Idp / Z * ((1-u)*(a+b)+u)
+
 
 
 
@@ -138,10 +197,10 @@ print('FCP =',P_C_P)
 
 # Calculating the average payoff of a given strategy
 
-F_C_R = mhs_CR()
-F_D_R = mhs_DR()
-F_C_P = mhs_CP()
-F_D_P = mhs_DP()
+F_C_R = fitness(wealth='R', strat='C')
+F_D_R = fitness(wealth='R', strat='D')
+F_C_P = fitness(wealth='P', strat='C')
+F_D_P = fitness(wealth='P', strat='D')
 
 
 print('Fitness = ')
