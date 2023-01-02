@@ -1,0 +1,98 @@
+A threshold Public Goods Game (PGG) in which success requires overall cooperative collective action, and decisions
+must be made knowing that failure to cooperate implies a risk of overall collapse
+
+Population (Z):
+ -> Zr = rich individuals
+ -> Zp = poor individuals
+ -> Z = Zr + Zp
+ -> N = size of the groups formed from individuals randomly sampled from the population
+
+Endowment (b):
+ -> br = money start for rich individuals
+ -> bp = money start for poor individuals
+ -> br > bp
+ -> c = a fraction of the endowment (b) to help solve the group task
+
+Behaviors:
+ -> cooperators (Cs) = contribute c to help solve the group task
+ -> defector (Ds) = do not contribute anything to solve the group task
+
+If the next intermediate target is not met:
+ -> Cs will lose: br/p - c
+ -> Ds will lose: br/p
+_
+b is the average endowment of the population
+  _
+Mcb is the threshold to be met with the contributions (c)
+
+r = perception of risk of collective disaster, probability of individuals to lose everything if the threshold is not met
+
+Homophily (h):
+ -> 0 ≤ h ≤ 1
+ -> h = 1, individuals are restricted to influence (and be influenced) by those of the same wealth status
+ -> h = 0, no wealth discrimination takes place
+
+ηG = fraction of time a group succeeds in achieving Mcb as a function of risk
+
+Payoff function (Π):
+    -> jr = nbr of rich Cs in the group of size N
+    -> jp = nbr of poor Cs in the group of size N
+    -> nbr of Ds = N−jr−jp   _
+    -> Δ = cr*jr + cp*jp − Mcb
+    -> ΠDs(payoff for defectors) = b * {Θ(Δ) + (1-r) * [1− Θ(Δ)]}
+    -> ΠCs(payoff for cooperators) = ΠDs - c
+    -> Θ(Δ)=1 whenever Δ>1 being 0 otherwise
+
+fitness (f) of an individual adopting a given strategy (X) in a population of wealth class (k) (fXk):
+    -> supplementary material 4 different fitness functions
+
+The number of individuals adopting a given strategy will evolve in time according to a stochastic
+birth–death process combined with the pairwise comparison rule = each individual of strategy X adopts
+the strategy Y of a randomly selected member of the population, with probability  given by the Fermi function
+
+
+A mutation probability μ, individuals adopt a randomly chosen different strategy, in such a way that when
+μ=1, the individual does change strategy
+
+The transition probabilities T can all be written in terms of the following expression, which
+gives the probability that an individual with strategy X ∈{R,P}; Dg in the subpopulation k ∈{C,D};
+Pg changes to a different strategy Y ∈{C,D}; Dg, both from the same subpopulation k and from the
+other population l (that is, l = P if k = R, and l = R if k = P)
+    -> supplementary material to check the function
+
+There is also a gradient of selection ∇i
+
+Graphs:
+ -> Average group achievement (ηG) as a function of risk (r)
+                                    _
+    1) initial endowment of all b = b = 1 (no wealth inequality)
+    2) h = 0
+    3) h = 1
+    Other parameters :
+    br = 2.5; bp = 0.625 (for 2 and 3)
+    cost of cooperation = 0.1b
+    cr = 0.1br; cp = 0.1bp
+    Z = 200; Zr = 40; Zp = 160
+    N = 6; M = 3
+
+ -> Stationary distribution and gradient of selection for different values of risk r and of the homophily parameter h
+    2 different risks
+    for each risk homophily of 0 - 0.7 - 1
+    A(r=0.2;h=0):B(r=0.2;h=0.7),C(r=0.2;h=1),D(r=0.3;h=0),E(r=0.3;h=0.7),F(r=0.3;h=1.0)
+    Z = 200; Zr = 40; Zp = 160;
+    c = 0.1;     _  _
+    N = 6; M = 3cb (b = 1);
+    bp = 0.625; br = 2.5; pk
+    pkmax = {pAmax, ..., pFmax} = {2,40,75,3,2,20} * 10e-3
+    ∇kmax = {∇Amax, ..., ∇Fmax} = {16,6,2,16,6,3} * 10e-2
+
+ -> Stationary distribution and gradient of selection for populations comprising 10% of individuals exhibiting an obstinate cooperative behavior
+    h = 1
+    Z = 200; Zr = 40; Zp = 160;
+    c = 0.1;     _  _
+    N = 6; M = 3cb (b = 1);
+    bP = 0.625; bR = 2.5;
+    r = 0.2;
+    β = 5.0; pk
+    pkmax = {pAmax, ..., pCmax} = {76,4,2} * 10e-3
+    ∇kmax = {∇Amax, ..., ∇Cmax} = {3,3,4} * 10e-2
