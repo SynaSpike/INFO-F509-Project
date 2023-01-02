@@ -21,7 +21,7 @@ class PGG(AbstractNPlayerGame):
                  group_size:int, endowment_rich:float, endowment_poor:float,
                  participation:float, risk:float, homophily:float, m:int, strategies:list[PGGStrategy]):
 
-        #mu, beta, gradients selection
+        #mu, beta, gradients selection  # TODO ?
 
         self.Z = population
         self.Zr = population_rich
@@ -56,8 +56,6 @@ class PGG(AbstractNPlayerGame):
 
         :return: The payoff value. (float)
         '''
-
-        a = 1
 
         # numer of rich and poor cooperators ?
         # TODO
@@ -140,7 +138,7 @@ class PGG(AbstractNPlayerGame):
             else:
                 non_zero.append(i)
                 action = self.strategies[i].get_action()
-                if action == 1:
+                if action == 1: # 1 = coop
                     # add to the contribution if they are rich or poor
                     contributions += strategy_count * self.c_
                     game_payoffs[i] = - self.c_

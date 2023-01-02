@@ -1,0 +1,41 @@
+PGG example : https://egttools.readthedocs.io/en/latest/_modules/egttools/games/pgg.html#PGG
+docu egttools : https://egttools.readthedocs.io/_/downloads/en/stable/pdf/
+
+--Model--
+Dans la fonction "init",
+    -> le paramètre "nb_group_configurations" que représente-t-il ?
+    -> Est ce qu'il faut aussi ajouter les paramètres beta (intensité de sélection), mu (taux de mutation),
+       ∇kmax (les gradients de selections) et enfin les pkmax (paramètres spécifiés dans les graphes qu'ils créent, ex: fig.2-3)
+    -> créer la population de riches et de pauvres à ce moment la ?
+
+Dans la fonction "calculate_payoffs",
+    -> dans quel ordre faut-il mettre le résultat des payofss dans la matrice.
+
+Dans la fonction "payoff",
+    -> comment calculer le nombre de cooperator riches (jr) et pauvres (jp) ?
+    -> comment savoir si il faut retourner le payoff du cooperateur riche ou pauvre ? de même si c'est un defector
+
+Dans la fonction "calculate_fitness",
+    -> comment calculer ir et ip ? Depuis le SI : a given configuration of strategies and wealth classes specified by i={ir;ip}
+    -> encore une fois, comment savoir si il faut retourner le payoff du cooperateur riche ou pauvre ? de même si c'est un defector
+
+Dans la fonction "play",
+    -> le code n'est pas entier mais est ce que les commentaires sont corrects ?
+
+
+--PGGStrategy--
+Dans la fonction "init",
+    -> est ce qu'il faut just spécifier la stratégie (0 pour Defect ou 1 pour coop) à ce moment ou bien aussi la richesse ?
+
+Dans la fonction "get_action",
+    -> en gros on retourne just la stratégie, mais est ce qu'il faut aussi ajouter la probabilité qu'il y ait une mutation vers l'autre stratégie ?
+
+
+--remarques générales--
+    -> pas sur de ou mettre la probabilité de la transition d'une stratégie à une autre
+    -> ou est ce qu'il faut mettre pi(t)
+    -> comment et ou calculer ηG ?
+    -> les gradients de sélections et les pkmax ?
+    -> Est ce qu'il faut utiliser les fonctions de cette page (https://egttools.readthedocs.io/en/master/tutorials/analytical_methods.html)
+       pour l'evolution des stratégies qui suit un birth-death process combiné avec the pairwise comparison rule ou bien est ce que c'est inclus dans le jeu
+       ex: https://egttools.readthedocs.io/en/master/examples/hawk_dove_dynamics.html#Evolutionary-Dynamics-of-the-Hawk-Dove-Game-in-Finite-populations
