@@ -117,32 +117,6 @@ def fitness(wealth, strat, ir=Ir,ip=Ip,Cr=Cr,Z=Z,N=N):
         return res * (binom(Z - 1, N - 1)) ** (-1)
 
 
-def fermi(beta, strategy):
-    '''
-    Under pairwise comparison, each individual
-of strategy X adopts the strategy Y of a randomly selected
-member of the population, with probability given by the Fermi
-function
-    :param beta: control the intensity of the selection
-    :param strategy: rich Cs (RC), poor Cs (PC), rich Ds (RD), or poor Ds (PD)
-    :return: probability
-    '''
-    strat_pop = ['PC','PD','RC','RD']
-    strat = strat_pop[randint(0,4)]
-
-    if strategy == 'PC':
-        res = 1 + exp(beta * (fitness(wealth='P',strat='C')-fitness(strat[0],strat[1])))**(-1)
-    elif strategy == 'PD':
-        res = 1 + exp(beta * (fitness(wealth='P',strat='D')-fitness(strat[0],strat[1])))**(-1)
-
-    elif strategy == 'RC':
-        res = 1 + exp(beta * (fitness(wealth='R',strat='C')-fitness(strat[0],strat[1])))**(-1)
-
-    elif strategy == 'RD':
-        res = 1 + exp(beta * (fitness(wealth='R',strat='D')-fitness(strat[0],strat[1])))**(-1)
-
-    return res
-
 def transition(k,X,u=0.5,beta=3):
     '''
     The transition probabilities gives the probability that an individual
@@ -208,6 +182,8 @@ print('FCR =',F_C_R)
 print('FDR =',F_D_R)
 print('FCP =',F_C_P)
 print('FDP =',F_D_P)
+
+print(Idr/Z, Icr/Z, Idp/Z, Icp/Z)
 
 # Evolution in time of the number of individuals adopting a given strategy
 #==== gain-loss equation involving the transition rates between all accessible configurations
