@@ -132,41 +132,79 @@ class ClimateGame:
 
         return game_payoffs
 
-    def calculate_fitness(self) -> float:
+    def calculate_fitness(self, ir, ip, wealth:int, strat:int) -> float:
         """
         # strategy_index: int, pop_size: int, population_state: np.ndarray
         This method should return the fitness of strategy
         with index `strategy_index` for the given `population_state`.
+        :param: ir nbr of rich
+        :param: ip nbr of poor
+
         """
 
-        ir = self.rich # ?? not Zr
-        ip = self.population_size - self.rich
 
         # rich cooperators
-        sum_1 = 0
+        if wealth == 1 and strat == 1:
+            sum_1 = 0
 
-        for jr in range(self.group_size):
-            sum_2 = 0
-            for jp in range(self.group_size - jr):
-                rich_payoff = self.play([0, 0, jp, jr + 1], np.zeros(4))[3]
-                # Do not care about the nbr of defector (does not affect payoff
-                sum_2 += binom(ir - 1, jr) * binom(ip, jp) * binom(self.population_size - ir - ip,
-                                                                   self.group_size - 1 - jr - jp) * rich_payoff
-            sum_1 += sum_2
+            for jr in range(self.group_size):
+                sum_2 = 0
+                for jp in range(self.group_size-jr-1, -1, -1):
+                    payoff = self.play([0, 0, jp, jr + 1], np.zeros(4))[3] # Rich coop
+                    # Do not care about the nbr of defector (does not affect payoff
+                    sum_2 += binom(ir - 1, jr) * binom(ip, jp) * binom(self.population_size - ir - ip,
+                                                                       self.group_size - 1 - jr - jp) * payoff
+                sum_1 += sum_2
 
-        fit_r_c = binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
+            return binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
 
-        return fit_r_c
 
         # rich defectors
-        # TODO
-        # poor cooperators
-        # TODO
-        # poor defectors
-        # TODO
+        if wealth == 1 and strat == 0:
+            sum_1 = 0
 
-        # return the fitness
-        # TODO
+            for jr in range(self.group_size):
+                sum_2 = 0
+                for jp in range(self.group_size-jr-1, -1, -1):
+                    payoff = self.play([0, 0, jp, jr], np.zeros(4))[1]  # Rich defector
+                    # Do not care about the nbr of defector (does not affect payoff
+                    sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
+                                                                       self.group_size - 1 - jr - jp) * payoff
+                sum_1 += sum_2
+
+            return binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
+
+        # poor cooperators
+        if wealth == 0 and strat == 1:
+            sum_1 = 0
+
+            for jr in range(self.group_size):
+                sum_2 = 0
+                for jp in range(self.group_size-jr-1, -1, -1):
+                    payoff = self.play([0, 0, jp + 1, jr], np.zeros(4))[2]  # Poor coop
+                    # Do not care about the nbr of defector (does not affect payoff
+                    sum_2 += binom(ir, jr) * binom(ip - 1, jp) * binom(self.population_size - ir - ip,
+                                                                   self.group_size - 1 - jr - jp) * payoff
+                sum_1 += sum_2
+
+            return binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+
+        # poor defectors
+
+        if wealth == 0 and strat == 0:
+            sum_1 = 0
+
+            for jr in range(self.group_size):
+                sum_2 = 0
+                for jp in range(self.group_size-jr-1, -1, -1):
+
+                    payoff = self.play([0, 0, jp, jr], np.zeros(4))[0]  # Poor defector
+                    # Do not care about the nbr of defector (does not affect payoff
+                    sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
+                                                                       self.group_size - 1 - jr - jp) * payoff
+                sum_1 += sum_2
+
+            return binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
     def __str__(self) -> str:
         """
@@ -250,8 +288,8 @@ if __name__ == '__main__':
     #print(len(a))
     #print(Game.get_comp(a))
 
-    print(Game.payoffs_[:,32])
+    #print(Game.payoffs_[:,32])
 
-    print(Game.calculate_fitness())
+    print(Game.calculate_fitness(198, 0, 0, 0))
 
 
