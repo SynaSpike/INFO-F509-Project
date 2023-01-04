@@ -17,7 +17,6 @@ Np = Zp/N #Number of poor individuals in each group
 br = 2.5 #Initial endowment of the rich
 bp = 0.625 #Initial endowment of the poor
 
-
 b_hat = (br*Zr + bp*Zp) / Z #Average endowment of the population
 
 #Population of Cs and Ds
@@ -26,21 +25,11 @@ Icp = 50
 Idr = Zr - Icr #nbr rich Ds in the population
 Idp = Zp - Icp #nbr poor Ds in the population
 
-
-Jr = int(N*(Icr/Zr)) #nbr rich Cs in each group
-
-Jp = int(N*(Icp/Zp)) #nbr rich Cs in each group
-print('XXXXXX :::' ,'Jr :',Jr, 'Jp :',Jp)
-
-Ds = N - Jr - Jp #Number of defectors in each group
-Cs = N - Ds #Number of cooperators in each group
-
 #Contributions
 c = 0.25 #fraction of the endowment contributed by Cs to help solve the group task
 
 Cr = c*br #Contribution of the rich Cs
 Cp = c*bp #Contribution of the poor Cs
-c_tot = ((c * br) * Jr) + ((c * bp) * Jp) #Total amount of contributions Iin each group
 
 #Lost if target not meet
 lost_Cr = br*(1-c) #Lost of the rich Cs if next intermediate target is not meet
@@ -48,10 +37,10 @@ lost_Cp = bp*(1-c) #Lost of the poor Cs if next intermediate target is not meet
 lost_Dr = br #Lost of the rich Ds if next intermediate target is not meet
 lost_Dp = bp #Lost of the poor Ds if next intermediate target is not meet
 
-M = 5 #positive integer between O and N
+M = 3*c*b_hat #positive integer between O and N
 Mcb = M*c*b_hat #Threshold  for the target to be met
 
-r = 0 #Perception of risk (varying between 0 and 1)
+r = 0.2 #Perception of risk (varying between 0 and 1)
 
 h = 0 #Homophily parameter (varying between 0 and 1)
         #When h = 1, individuals are restricted to influence by those of the same wealth status
@@ -71,47 +60,49 @@ def payoff_DR(Jr,Jp):
     delta = Cr * Jr + Cp * Jp - Mcb
     return br * (O_(delta) + (1 - r) * (1 - O_(delta)))
 
-def payoff_DP(Jr=Jr,Jp=Jp,Cr=Cr, Cp=Cp, Mcb=Mcb,bp=bp):
+def payoff_DP(Jr,Jp,Cr=Cr, Cp=Cp, Mcb=Mcb,bp=bp):
     ''' Payoff for poor defector player'''
     delta = Cr * Jr + Cp * Jp - Mcb
     return bp * (O_(delta) + (1 - r) * (1 - O_(delta)))
 
 def binom(n,r):
     '''binomila product'''
-    return fact(n)//fact(r)//fact(n-r)
+    if n < r:
+        return 0
+    else:
+        return fact(n)//fact(r)//fact(n-r)
 
 
-def fitness(wealth, strat, Icr,Icp):
+def fitness(wealth, strat, Ir,Ip, N=N, Z=Z):
     '''fitness for rich cooperator'''
     res = 0
     if wealth == 'R' and strat == 'C':
         for jr in range(0,(N)):
             for jp in range (0,(N-jr)):
-                P_C_R = payoff_DR(Jr=jr+1, Jp=jp) - Cr
-                print('BINOMIAL ::: ',Icr - 1, jr,Icp, jp,Z-Icr-Icp, N-1-jr-jp)
-                res += binom(Icr - 1, jr) * binom(Icp, jp) * binom(Z-Icr-Icp, N-1-jr-jp) * P_C_R
+                P_C_R = payoff_DR(jr+1,jp) - Cr
+                res += binom(Ir - 1, jr) * binom(Ip, jp) * binom(Z-Ir-Ip, N-1-jr-jp) * P_C_R
         return res * (binom(Z-1,N-1))**(-1)
     elif wealth == 'P' and strat == 'C':
         for jr in range(0, (N)):
             for jp in range(0, (N - jr)):
-                P_C_P = payoff_DP(Jr=jr, Jp=jp + 1) - Cp
-                res += binom(Icr, jr) * binom(Icp - 1, jp) * binom(Z - Icr - Icp, N - 1 - jr - jp) * P_C_P
-        return res * (binom(Z - 1, N - 1)) ** (-1)
+                P_C_P = payoff_DP(jr,jp + 1) - Cp
+                res += binom(Ir, jr) * binom(Ip - 1, jp) * binom(Z - Ir - Ip, N - 1 - jr - jp) * P_C_P
+        return res * (binom(Z -1, N - 1)) ** (-1)
     elif wealth == 'R' and strat == 'D':
         for jr in range(0, (N)):
             for jp in range(0, (N - jr)):
-                P_D_R = payoff_DR(Jr=jr, Jp=jp)
-                res += binom(Icr, jr) * binom(Icp, jp) * binom(Z - 1 - Icr - Icp, N - 1 - jr - jp) * P_D_R
+                P_D_R = payoff_DR(jr,jp)
+                res += binom(Ir, jr) * binom(Ip, jp) * binom(Z - 1 - Ir - Ip, N - 1 - jr - jp) * P_D_R
         return res * (binom(Z - 1, N - 1)) ** (-1)
     elif wealth == 'P' and strat == 'D':
         for jr in range(0, (N)):
             for jp in range(0, (N - jr)):
-                P_D_P = payoff_DP(Jr=jr, Jp=jp)
-                res += binom(Icr, jr) * binom(Icp, jp) * binom(Z - 1 - Icr - Icp, N - 1 - jr - jp) * P_D_P
+                P_D_P = payoff_DP(jr, jp)
+                res += binom(Ir, jr) * binom(Ip, jp) * binom(Z - 1 - Ir - Ip, N - 1 - jr - jp) * P_D_P
         return res * (binom(Z - 1, N - 1)) ** (-1)
 
 
-def transition(k,X, Idr, Idp, Icr, Icp,u=0.5,beta=3):
+def transition(k,X, Idr, Idp, Icr, Icp,u=1/Z,beta=3,h=0):
     '''
     The transition probabilities gives the probability that an individual
     with strategy X ∈ C;D in the subpopulation k ∈ R;P changes
@@ -124,24 +115,47 @@ def transition(k,X, Idr, Idp, Icr, Icp,u=0.5,beta=3):
     :return: transition probabilities from a strategy X to Y
     '''
     if k == 'R'and X == 'C':
-        a = (Idr/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness('R','C',Icr, Icp)-fitness('R','D',Icr, Icp))**(-1)))
-        b = ((1-h)*Idp/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness('R','C',Icr, Icp)-fitness('P','D',Icr, Icp))**(-1)))
-        return Icr/ Z * ((1-u)*(a+b)+u)
+        #RC TO RD
+        a = (Idr/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness('R','C',Icr, Icp)-fitness('R','D',Icr, Icp))))**(-1)
+        b = ((1-h)*Idp/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness('R','C',Icr, Icp)-fitness('P','D',Icr, Icp))))**(-1)
+
+        #RC to RC
+        c = (Icr / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('R', 'C', Icr, Icp) - fitness('R', 'C', Icr, Icp))))**(-1)
+        d = ((1-h)*Icp/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness('R','C',Icr, Icp)-fitness('P','C',Icr, Icp))))**(-1)
+
+        return Icr/ Z * ((1-u)*(a+b)+u), Icr/ Z * ((1-u)*(c+d)+u)
 
     elif k == 'R'and X == 'D':
-        a = (Icr / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('R','D',Icr, Icp) - fitness('R','C',Icr, Icp)) ** (-1)))
-        b = ((1 - h) * Icp / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('R','D', Icr, Icp) - fitness('P', 'C',Icr, Icp)) ** (-1)))
-        return Idr / Z * ((1-u)*(a+b)+u)
+        #RD to RC
+        a = (Icr / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('R','D',Icr, Icp) - fitness('R','C',Icr, Icp))))**(-1)
+        b = ((1 - h) * Icp / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('R','D', Icr, Icp) - fitness('P', 'C',Icr, Icp))))**(-1)
+
+        #RD to RD
+        c = (Idr / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('R', 'D', Icr, Icp) - fitness('R', 'D', Icr, Icp))))**(-1)
+        d = ((1-h)*Idp/(Zr-1 + (1-h)*Zp))*(1 + exp(beta * (fitness('R','D',Icr, Icp)-fitness('P','D',Icr, Icp))))**(-1)
+        return Idr / Z * ((1-u)*(a+b)+u), Idr/ Z * ((1-u)*(c+d)+u)
 
     elif k == 'P'and X == 'C':
-        a = (Idp/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','C',Icr, Icp)-fitness('P','D',Icr, Icp))**(-1)))
-        b = ((1-h)*Idr/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','C',Icr, Icp)-fitness('R','D',Icr, Icp))**(-1)))
-        return Icp / Z * ((1-u)*(a+b)+u)
+        #PC to PD
+        a = (Idp/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','C',Icr, Icp)-fitness('P','D',Icr, Icp))))**(-1)
+        b = ((1-h)*Idr/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','C',Icr, Icp)-fitness('R','D',Icr, Icp))))**(-1)
+
+        #PC to PC
+        c = (Icp / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('P', 'C', Icr, Icp)-fitness('P', 'C', Icr, Icp))))**(-1)
+        d = ((1 - h) * Icr / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('P', 'C', Icr, Icp) - fitness('R', 'C', Icr, Icp))))**(-1)
+
+        return Icp / Z * ((1-u)*(a+b)+u),Icp / Z * ((1-u)*(c+d)+u)
 
     elif k == 'P'and X == 'D':
-        a = (Icp/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','D',Icr, Icp)-fitness('P','C',Icr, Icp))**(-1)))
-        b = ((1-h)*Icr/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','D',Icr, Icp)-fitness('R','C',Icr, Icp))**(-1)))
-        return Idp / Z * ((1-u)*(a+b)+u)
+        #PD to PC
+        a = (Icp/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','D',Icr, Icp)-fitness('P','C',Icr, Icp))))**(-1)
+        b = ((1-h)*Icr/(Zp-1 + (1-h)*Zr))*(1 + exp(beta * (fitness('P','D',Icr, Icp)-fitness('R','C',Icr, Icp))))**(-1)
+
+        #PD to PD
+        c = (Idp / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('P', 'D', Icr, Icp) - fitness('P', 'D', Icr, Icp)))) ** (-1)
+        d = ((1 - h) * Idr / (Zr - 1 + (1 - h) * Zp)) * (1 + exp(beta * (fitness('P', 'D', Icr, Icp) - fitness('R', 'D', Icr, Icp)))) ** (-1)
+
+        return Idp / Z * ((1-u)*(a+b)+u), Idp / Z * ((1-u)*(c+d)+u)
 
 
 def simulate_markov_process(num_steps, Idr, Idp, Icr, Icp):
@@ -170,13 +184,13 @@ def simulate_markov_process(num_steps, Idr, Idp, Icr, Icp):
                 Idp = Idp + 1
     return [Icr, Icp]
 
+def GoS(Idr, Idp, Icr, Icp):
+    Tpr = transition('R','D', Idr, Idp, Icr, Icp)[0]
+    Tnr = transition('R', 'C', Idr, Idp, Icr, Icp)[0]
+    Tpp = transition('P', 'D', Idr, Idp, Icr, Icp)[0]
+    Tnp = transition('P', 'C', Idr, Idp, Icr, Icp)[0]
+    return(Tpr-Tnr, Tpp-Tnp)
 
-P = np.array([[0.5, 0.5, 0.0],
-              [0.2, 0.8, 0.0],
-              [0.0, 0.0, 1.0]])
-
-# Initial state
-current_state = np.array([0, 0])
 
 # Simulate the Markov process for 100 steps
 #initial_state = [Icr, Icp]
@@ -186,22 +200,25 @@ current_state = np.array([0, 0])
 #print(f"Final state: {final_state}")
 
 
-
+matrix = []
 for Icr in range(0,Zr):
     for Icp in range(0,Zp):
-        print(Icr, Icp)
-        Idr = Zr - Icr  # nbr rich Ds in the population
-        Idp = Zp - Icp  # nbr poor Ds in the population
-        Jr = int(N * (Icr / Zr))  # nbr rich Cs in each group
-        Jp = int(N * (Icp / Zp))  # nbr rich Cs in each group
-        print(Idr, Idp)
-        print('transition prob. RC --> RD = ', transition('R','C',Idr, Idp, Icr, Icp))
-        print('transition prob. RD --> RC = ', transition('R', 'D',Idr, Idp, Icr, Icp))
-        print('transition prob. PC --> PD = ', transition('P', 'C',Idr, Idp, Icr, Icp))
-        print('transition prob. PD --> PC = ', transition('P', 'D',Idr, Idp, Icr, Icp))
+        sub_list = []
+        Idr = Zr - Icr
+        Idp = Zp - Icp
         print('--------------',(Icr,Icp),'--------------')
+        print(GoS(Idr, Idp, Icr, Icp))
+        #sub_list.append(transition('R','C',Idr, Idp, Icr, Icp)[0])
+        #sub_list.append(transition('R', 'D',Idr, Idp, Icr, Icp)[0])
+        #sub_list.append(transition('P', 'C',Idr, Idp, Icr, Icp)[0])
+        #sub_list.append(transition('P', 'D',Idr, Idp, Icr, Icp)[0])
+        #matrix.append(sub_list)
 
 
 
 
-
+        #print('transition prob. RC --> RD = ', transition('R','C',Idr, Idp, Icr, Icp))
+        #print('transition prob. RD --> RC = ', transition('R', 'D',Idr, Idp, Icr, Icp))
+        #print('transition prob. PC --> PD = ', transition('P', 'C',Idr, Idp, Icr, Icp))
+        #print('transition prob. PD --> PC = ', transition('P', 'D',Idr, Idp, Icr, Icp))
+        #print('--------------',(Icr,Icp),'--------------')
