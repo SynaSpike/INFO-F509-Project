@@ -40,6 +40,7 @@ class ClimateGame:
         self.nb_group_configurations_ = egttools.calculate_nb_states(self.group_size, self.nb_strategies)
         self.payoffs_ = np.zeros(shape=(self.nb_strategies,self.nb_group))
 
+        self.population = [] #  Player population
         self.groups = self.sample(nb_rich / popuplation_size)
 
         #  Initialize payoff matrix
@@ -81,6 +82,30 @@ class ClimateGame:
                 comp[3] += 1
 
         return comp
+
+    def get_nbr_cat(self, population: list):
+        """
+        :param population: List of Player population
+        :return: the number of (wealth; strat)
+        """
+
+        Dp = 0
+        Dr = 0
+        Cp = 0
+        Cr = 0
+
+        for plr in range(population):
+
+            if plr.wealth == 0 and plr.strategy.action == 0:
+                Dp += 1
+            if plr.wealth == 1 and plr.strategy.action == 0:
+                Dr += 1
+            if plr.wealth == 0 and plr.strategy.action == 1:
+                Cp += 1
+            if plr.wealth == 1 and plr.strategy.action == 1:
+                Cr += 1
+
+        return [Dp, Dr, Cp, Cr]
 
 
     def calculate_payoffs(self) -> np.ndarray:
@@ -205,6 +230,17 @@ class ClimateGame:
                 sum_1 += sum_2
 
             return binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+
+
+    def transition_probabilities(self, ir, ip, population):
+        """
+        This function is used to return T
+        :return:
+        """
+
+        # Transition coop -> def poor
+
+
 
     def __str__(self) -> str:
         """
