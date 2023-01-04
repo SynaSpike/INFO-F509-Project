@@ -75,3 +75,7 @@ class Individual:
         self.endowment = endowment
         self.strategy = "cooperate" if random.uniform(0, 1) < 0.5 else "defect"
         self.fitness = 0
+
+
+
+

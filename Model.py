@@ -12,6 +12,7 @@ from numpy import ndarray
 from scipy.special import binom
 import math
 from . import PGGStrategy
+import random
 
 
 
@@ -117,6 +118,19 @@ class PGG(AbstractNPlayerGame):
 
         # return the fitness
             # TODO
+
+    def create_pop(self):
+        num_rich = int(self.population_size * self.wealth_ratio)
+        num_poor = self.population_size - num_rich
+        self.population = []
+
+        for i in range(num_rich):
+            self.population.append(["rich", random.randint(1, 2) == 1 and "C" or "D"])
+        for i in range(num_poor):
+            self.population.append(["poor", random.randint(1, 2) == 1 and "C" or "D"])
+
+        random.shuffle(self.population)
+        groups = [self.population[i:i + self.group_size] for i in range(0, len(self.population), self.group_size)]
 
 
     def play(self, group_composition:list(int), game_payoffs:list(float)):
