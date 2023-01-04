@@ -77,5 +77,23 @@ class Individual:
         self.fitness = 0
 
 
+import numpy as np
 
+class MarkovProcess:
+
+    def init(self, states, transition_matrix, time_step):
+        self.states = states
+        self.transition_matrix = transition_matrix
+        self.time_step = time_step
+        self.prob_distribution = np.zeros(len(self.states))
+        self.prob_distribution[0] = 1
+
+    def update(self):
+        new_prob_distribution = np.zeros(len(self.states))
+        for i in range(len(self.states)):
+            for j in range(len(self.states)):
+                new_prob_distribution[i] += self.transition_matrix[j][i] * self.prob_distribution[j] * self.time_step
+                new_prob_distribution[j] -= self.transition_matrix[j][i] * self.prob_distribution[j] * self.time_step
+
+        self.prob_distribution = new_prob_distribution
 

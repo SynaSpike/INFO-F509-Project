@@ -125,13 +125,35 @@ class PGG(AbstractNPlayerGame):
         self.population = []
 
         for i in range(num_rich):
-            self.population.append(["rich", random.randint(1, 2) == 1 and "C" or "D"])
+            self.population.append(PGGStrategy("rich"))
         for i in range(num_poor):
             self.population.append(["poor", random.randint(1, 2) == 1 and "C" or "D"])
 
         random.shuffle(self.population)
         groups = [self.population[i:i + self.group_size] for i in range(0, len(self.population), self.group_size)]
 
+    def transition(self):
+
+        import math
+
+        mu = 0
+        beta = 0
+        ikX = 0
+        ikY = 0
+        ilY = 0
+        Z = 0
+        h = 0
+        Zk = 0
+        Zl = 0
+        fkX = 0
+        fkY = 0
+        flY = 0
+
+        fermi_1 = (1 + math.e ** (beta * (fkX - fkY))) ** -1
+        fermi_2 = (1 + math.e ** (beta * (fkX - flY))) ** -1
+        param1 = ikY / (Zk - 1 + (1 - h) * Zl)
+        param2 = ((1 - h) * ilY) / (Zk - 1 + (1 - h) * Zl)
+        Tkx_to_y = (ikX / Z) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
 
     def play(self, group_composition:list(int), game_payoffs:list(float)):
         '''
@@ -181,3 +203,4 @@ class PGG(AbstractNPlayerGame):
 ## calculate_transition_matrix(beta, mu):
 # Calculates the transition matrix of the Markov chain that defines the dynamics of the population. beta gives the
 # intensity of selection and mu the mutation rate.
+
