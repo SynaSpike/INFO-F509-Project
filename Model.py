@@ -5,6 +5,7 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 (doi:10.1073/pnas.1323479111) Crossref, PubMed, ISI, Google Scholar
 """
 import random
+from scipy.special import binom
 
 import egttools
 import numpy as np
@@ -131,13 +132,41 @@ class ClimateGame:
 
         return game_payoffs
 
-    def calculate_fitness(self, strategy_index: int, pop_size: int, population_state: np.ndarray) -> float:
+    def calculate_fitness(self) -> float:
         """
+        # strategy_index: int, pop_size: int, population_state: np.ndarray
         This method should return the fitness of strategy
         with index `strategy_index` for the given `population_state`.
         """
 
-    pass
+        ir = self.rich # ?? not Zr
+        ip = self.population_size - self.rich
+
+        # rich cooperators
+        sum_1 = 0
+
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size - jr):
+                rich_payoff = self.play([0, 0, jp, jr + 1], np.zeros(4))[3]
+                # Do not care about the nbr of defector (does not affect payoff
+                sum_2 += binom(ir - 1, jr) * binom(ip, jp) * binom(self.population_size - ir - ip,
+                                                                   self.group_size - 1 - jr - jp) * rich_payoff
+            sum_1 += sum_2
+
+        fit_r_c = binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
+
+        return fit_r_c
+
+        # rich defectors
+        # TODO
+        # poor cooperators
+        # TODO
+        # poor defectors
+        # TODO
+
+        # return the fitness
+        # TODO
 
     def __str__(self) -> str:
         """
@@ -209,8 +238,8 @@ if __name__ == '__main__':
     M = 3  # Between 0 and group_size
 
     Game = ClimateGame(popuplation_size= population_size, group_size= group_size,  nb_rich= nb_rich, strategies= strategies,
-                       profiles= profiles, fraction_endowment= fraction_endowment, homophily= homophily, risk= risk, M= M, rich_end= 2.5,
-                       poor_end= 0.625)
+                       profiles= profiles, fraction_endowment= fraction_endowment, homophily= homophily, risk= risk, M= M,
+                       rich_end= 2.5, poor_end= 0.625)
 
     #print(len(Game.sample(0.8)[32]))
 
@@ -222,5 +251,7 @@ if __name__ == '__main__':
     #print(Game.get_comp(a))
 
     print(Game.payoffs_[:,32])
+
+    print(Game.calculate_fitness())
 
 
