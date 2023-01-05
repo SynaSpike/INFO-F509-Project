@@ -5,7 +5,8 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 (doi:10.1073/pnas.1323479111) Crossref, PubMed, ISI, Google Scholar
 """
 import random
-from typing import Union, Any
+import time
+import tqdm
 
 from scipy.special import binom
 
@@ -18,17 +19,15 @@ import Player
 class ClimateGame:
 
 
-    def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, strategies: list, profiles: list,
-                 fraction_endowment: float, homophily:float, risk:float, M:float, rich_end:int, poor_end:int, nb_rich_sub:int, nb_poor_sub:int ) -> None:
+    def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, nb_poor:int, strategies: list, profiles: list,
+                 fraction_endowment: float, homophily:float, risk:float, M:float, rich_end:int, poor_end:int) -> None:
         self.population_size = popuplation_size  # Z
         self.group_size = group_size  # N
         self.nb_group = self.population_size // self.group_size
         self.rich = nb_rich  # Zr
-        self.rich_sub = nb_rich_sub
-        self.poor_sub = nb_poor_sub
         self.rich_end = rich_end
         self.poor_end = poor_end
-        self.poor = popuplation_size - nb_rich  # Zp
+        self.poor = nb_poor  # Zp
         self.strategies = strategies  # Ds or Cs
         self.profiles = profiles  # Poor or Rich
         self.nb_strategies = 4  # Dp Dr Cp Cr
@@ -55,8 +54,8 @@ class ClimateGame:
         :return: np.ndarray shape(nb.groups,2) of number of poor and rich.
         """
 
-        num_rich = int(self.population_size * wealth_ratio)
-        num_poor = self.population_size - num_rich
+        num_rich = self.rich
+        num_poor = self.poor
         self.population = []
 
         for i in range(num_rich):
@@ -69,6 +68,7 @@ class ClimateGame:
         groups = [self.population[i:i + self.group_size] for i in range(0, self.group_size*self.nb_group, self.group_size)]
 
         return groups
+
 
     def get_comp(self, group):
 
@@ -170,6 +170,8 @@ class ClimateGame:
         with index `strategy_index` for the given `population_state`.
         :param: ir nbr of rich
         :param: ip nbr of poor
+        :format:
+        [ Dp, Dr, Cp, Cr ]
 
         """
     # rich cooperators
@@ -233,15 +235,101 @@ class ClimateGame:
         return [PD, RD, PC, RC]
 
 
-    def transition_probabilities(self, ir, ip, population):
+    def transition_probabilities(self, ir, ip, rounding:bool):
         """
         This function is used to return T
-        :return:
+        :return: T prob
+        :format:
+        --------------
+       Dp |Dp Cp Dr Cr |
+       Cp |Dp Cp Dr Cr |
+       Dr |Dp Cp Dr Cr |
+       Cr |Dp Cp Dr Cr |
+        -------------
         """
+        fit = self.calculate_fitness(ir, ip) # Dp Dr Cp Cr
+        Dp = self.poor - ip # Nbr of poor defector
+        Dr = self.rich - ir # Nbr of rich defector
+        beta = 5.0
+        mu = 1/self.population_size
 
 
-        # Transition coop -> def poor
+        T_prob = np.zeros(shape=(self.nb_strategies, self.nb_strategies))
 
+        # Transition Cp -> Dp
+        fermi_1 = (1 + np.exp(beta * (fit[2]- fit[0])))** -1 # Cp -> Dp
+        fermi_2 = (1 + np.exp((beta * (fit[2] - fit[1])))) ** -1 # Cp -> Dr
+        param1 = (Dp / (self.poor - 1 + (1 - self.homophily)* self.rich))
+        param2 =  ((1 - self.homophily) * Dr) / (self.poor - 1 + (1 - self.homophily) * self.rich)
+        T_prob[1,0] = ( ip / self.population_size ) * ( ( 1 - mu) * ( param1 * fermi_1  + param2 * fermi_2 ) + mu )
+
+        # Transition Cr -> Dr
+        fermi_1 = (1 + np.exp(beta * (fit[3] - fit[1]))) ** -1  # Cr -> Dr
+        fermi_2 = (1 + np.exp((beta * (fit[3] - fit[0])))) ** -1  # Cr -> Dp
+        param1 = (Dr / (self.rich - 1 + (1 - self.homophily) * self.poor))
+        param2 = ((1 - self.homophily) * Dp) / (self.rich - 1 + (1 - self.homophily) * self.poor)
+        T_prob[3,2] = (ir / self.population_size) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+        # Transition Dp -> Cp
+        fermi_1 = (1 + np.exp(beta * (fit[0] - fit[2]))) ** -1  # Dp -> Cp
+        fermi_2 = (1 + np.exp((beta * (fit[0] - fit[3])))) ** -1  # Dp -> Cr
+        param1 = (ip / (self.poor - 1 + (1 - self.homophily) * self.rich))
+        param2 = ((1 - self.homophily) * ir) / (self.poor - 1 + (1 - self.homophily) * self.rich)
+        T_prob[0,1] = (Dp / self.population_size) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+        # Transition Dr -> Cr
+        fermi_1 = (1 + np.exp(beta * (fit[1] - fit[3]))) ** -1  # Dr -> Cr
+        fermi_2 = (1 + np.exp((beta * (fit[1] - fit[2])))) ** -1  # Dr -> Cp
+        param1 = (ir / (self.rich - 1 + (1 - self.homophily) * self.poor))
+        param2 = ((1 - self.homophily) * ip) / (self.rich - 1 + (1 - self.homophily) * self.poor)
+        T_prob[2,3] = (Dr / self.population_size) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+
+        T_prob[0:1,2:3] = 0 # Poor -> Rich
+        T_prob[2:3, 0:1] = 0 # Rich -> Poor
+        T_prob[0,0] = 1 - T_prob[0,1]
+        T_prob[1,1] = 1 - T_prob[1,0]
+        T_prob[2, 2] = 1 - T_prob[2, 3]
+        T_prob[3, 3] = 1 - T_prob[3, 2]
+
+        if rounding:
+            # Rounding 4 numbers
+            for i in range(len(T_prob)):
+                for j in range(len(T_prob[i])):
+                    T_prob[i,j] = round(T_prob[i,j], 4)
+
+        return T_prob
+
+    def population_configuration(self):
+
+        pop_conf = []
+
+        for i in range(self.rich + 1):
+
+            for j in range(self.poor + 1):
+
+                pop_conf.append((i,j))
+
+        return pop_conf
+
+    def transition_matrix(self):
+
+        matrix = []
+
+        conf = self.population_configuration()
+
+
+        for i in range(len(conf)):
+            m_tmp = []
+
+            for j in range(len(conf)) and tqdm.trange(len(conf)):
+
+                #m_tmp.append([self.transition_probabilities(conf[j][0], conf[j][1],True)])
+                self.transition_probabilities(conf[j][0], conf[j][1],True)
+
+            #matrix.append(m_tmp)
+
+        return matrix
 
     @staticmethod
 
@@ -257,46 +345,11 @@ class ClimateGame:
 
     pass
 
-    def nb_strategies(self) -> int:
-        """
-        This method should return the number of strategies which can play the game.
-        """
-
-    pass
-
     def type(self) -> str:
         """
         This method should return a string representing the type of game.
         """
-
-    pass
-
-    def payoffs(self) -> np.ndarray:
-        """
-        This method should return the payoff matrix of the game,
-        which gives the payoff of each strategy
-        in each given context.
-        """
-
-    pass
-
-    # def payoff(self, strategy: int, group_configuration: list[int]) -> float:
-    # """
-    # This method should return the payoff of a strategy
-    # for a given `group_configuration`, which gives
-    # the counts of each strategy in the group.
-    # This method only needs to be implemented for N-player games
-    # """
-
-    # pass
-
-    def save_payoffs(self, file_name: str) -> None:
-        """
-        This method should implement a mechanism to save
-        the payoff matrix and parameters of the game to permanent storage.
-        """
-
-    pass
+        pass
 
 
 if __name__ == '__main__':
@@ -310,31 +363,29 @@ if __name__ == '__main__':
 
     population_size = 200
     group_size = 6
-    nb_rich = 40
+    nb_rich = 39
+    nb_poor = 159
 
     profiles = [player_p, player_r]
     fraction_endowment = 0.25
-    homophily = 0.5
+    homophily = 0
     risk = 0.1
     M = 3  # Between 0 and group_size
 
-    Game = ClimateGame(popuplation_size= population_size, group_size= group_size,  nb_rich= nb_rich, strategies= strategies,
+    Game = ClimateGame(popuplation_size= population_size, group_size= group_size,  nb_rich= nb_rich, nb_poor=nb_poor, strategies= strategies,
                        profiles= profiles, fraction_endowment= fraction_endowment, homophily= homophily, risk= risk, M= M,
-                       rich_end= 2.5, poor_end= 0.625, nb_rich_sub=159, nb_poor_sub=39)
+                       rich_end= 2.5, poor_end= 0.625)
 
-    #print(len(Game.sample(0.8)[32]))
-
-    #for i in range(6):
-        #print(Game.sample(0.8)[32][i].get_wealth())
-
-    #a = Game.sample(0.8)[32]
-    #print(len(a))
-    #print(Game.get_comp(a))
-
-    #print(Game.payoffs_[:,32])
-
-    print(Game.calculate_fitness(159, 39))
-
-    print(Game.calculate_payoffs())
+    print("------------------------ PAYOFF ---------------------")
+    print("PAYOFF REACHED TRESHOLD: ", Game.play([0,0,4,2], [0,0,0,0]), "\n")
+    print("PAYOFF UNREACHED TRESHOLD: ", Game.play([0, 0, 0, 0], [0, 0, 0, 0]), "\n")
+    print("------------------------ FITNESSES ---------------------")
+    print(Game.calculate_fitness(39, 159), "\n")
+    print("----------------------- TRANSITION PROB ----------------")
+    print(Game.transition_probabilities(20, 60, rounding= False), "\n")
+    print("----------------------- NUMBER OF CONFIG ----------------")
+    print(len(Game.population_configuration()),"\n")
+    print("----------------------- TRANSITION MATRIX ----------------")
+    #print(Game.transition_matrix())
 
 
