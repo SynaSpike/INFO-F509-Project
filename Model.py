@@ -13,13 +13,15 @@ import egttools
 import numpy as np
 import PGGStrategy
 import Player
+import math
 
 
 class ClimateGame:
 
 
     def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, strategies: list, profiles: list,
-                 fraction_endowment: float, homophily:float, risk:float, M:float, rich_end:int, poor_end:int, nb_rich_sub:int, nb_poor_sub:int ) -> None:
+                 fraction_endowment: float, homophily:float, risk:float, M:float, rich_end:int, poor_end:int,
+                 nb_rich_sub:int, nb_poor_sub:int, mu:float, beta:float) -> None:
         self.population_size = popuplation_size  # Z
         self.group_size = group_size  # N
         self.nb_group = self.population_size // self.group_size
@@ -40,6 +42,8 @@ class ClimateGame:
         self.treshold = M * fraction_endowment * ((((profiles[0].endowment * self.poor) + (profiles[1].endowment * self.rich)) /self.population_size))
         self.rich_pg = (self.rich / self.population_size) *  self.group_size  # Rich per group
         self.poor_pg = self.group_size - self.rich_pg   # Poor per group
+        self.mu = mu
+        self.beta = beta
 
         self.nb_group_configurations_ = egttools.calculate_nb_states(self.group_size, self.nb_strategies)
         self.payoffs_ = np.zeros(shape=(self.nb_strategies,self.nb_group))
@@ -232,15 +236,87 @@ class ClimateGame:
 
         return [PD, RD, PC, RC]
 
+    def transition_probability(self, ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY):
+        # an individual with strategy X∈{C,D} in the subpopulation k∈{R,P} changes to a different strategy
+        # Y∈{C,D}, both from the same subpopulation k and from the other population l
+        # l = P if k = R, and l = R if k = P
+        mu = self.mu
+        beta = self.beta
+        Z = self.population_size
+        h = self.homophily
+        print("ikX:", ikX, "ikY:", ikY, "ilY:", ilY, "Zk:", Zk, "Zl:", Zl, "fkX:", fkX, "fkY:", fkY, "flY:", flY)
 
-    def transition_probabilities(self, ir, ip, population):
+        fermi_1 = (1 + math.e ** (beta * (fkX - fkY))) ** -1
+        fermi_2 = (1 + math.e ** (beta * (fkX - flY))) ** -1
+        param1 = ikY / (Zk - 1 + (1 - h) * Zl)
+        param2 = ((1 - h) * ilY) / (Zk - 1 + (1 - h) * Zl)
+        print(fermi_1, fermi_2, param1, param2)
+        return (ikX / Z) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+    def transition_probabilities(self, ir, ip):
+        print("ir:", ir, "ip:", ip)
         """
         This function is used to return T
         :return:
         """
 
+        fitness = self.calculate_fitness(ir, ip)
+        # [PD, RD, PC, RC]
+        print("Fitness[PD, RD, PC, RC]:", fitness)
 
-        # Transition coop -> def poor
+        print("")
+        print("Transition kX = poor coop -> kY = poor defect")
+        # k = pauvre, l = riche, X = coop, Y = defect
+        Zk = self.poor
+        Zl = self.rich
+        ikX = ip
+        ikY = Zk - ip
+        ilY = Zl - ir
+        fkX = fitness[2]
+        fkY = fitness[0]
+        flY = fitness[1]
+        PC_to_PD = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+
+        print("")
+        print("Transition kX = poor defect -> kY = poor coop")
+        # k = pauvre, l = riche, X = defect, Y = coop
+        Zk = self.poor
+        Zl = self.rich
+        ikX = Zk - ip
+        ikY = ip
+        ilY = ir
+        fkX = fitness[0]
+        fkY = fitness[2]
+        flY = fitness[3]
+        PD_to_PC = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+
+        print("")
+        print("Transition kX = rich coop -> kY = rich defect")
+        # k = rich, l = poor, X = coop, Y = defect
+        Zk = self.rich
+        Zl = self.poor
+        ikX = ir
+        ikY = Zk - ir
+        ilY = Zl - ip
+        fkX = fitness[3]
+        fkY = fitness[1]
+        flY = fitness[0]
+        RC_to_RD = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+
+        print("")
+        print("Transition kX = rich defect -> kY = rich coop")
+        # k = rich, l = poor, X = defect, Y = coop
+        Zk = self.rich
+        Zl = self.poor
+        ikX = Zk - ir
+        ikY = ir
+        ilY = ip
+        fkX = fitness[1]
+        fkY = fitness[3]
+        flY = fitness[2]
+        RD_to_RC = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+
+        return [PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]
 
 
     @staticmethod
@@ -317,10 +393,12 @@ if __name__ == '__main__':
     homophily = 0.5
     risk = 0.1
     M = 3  # Between 0 and group_size
+    mu = .5
+    beta = .5
 
     Game = ClimateGame(popuplation_size= population_size, group_size= group_size,  nb_rich= nb_rich, strategies= strategies,
                        profiles= profiles, fraction_endowment= fraction_endowment, homophily= homophily, risk= risk, M= M,
-                       rich_end= 2.5, poor_end= 0.625, nb_rich_sub=159, nb_poor_sub=39)
+                       rich_end= 2.5, poor_end= 0.625, nb_rich_sub=159, nb_poor_sub=39, mu=mu, beta=beta)
 
     #print(len(Game.sample(0.8)[32]))
 
@@ -333,8 +411,9 @@ if __name__ == '__main__':
 
     #print(Game.payoffs_[:,32])
 
-    print(Game.calculate_fitness(159, 39))
+    #print(Game.calculate_fitness(159, 39))
 
-    print(Game.calculate_payoffs())
+    #print(Game.calculate_payoffs())
 
+    print("Results[PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]:", Game.transition_probabilities(ir=20,ip=60))
 
