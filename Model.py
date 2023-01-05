@@ -319,10 +319,10 @@ class ClimateGame:
         conf = self.population_configuration()
 
 
-        for i in range(len(conf)):
+        for i in range(len(conf))  and tqdm.trange(len(conf)):
             m_tmp = []
 
-            for j in range(len(conf)) and tqdm.trange(len(conf)):
+            for j in range(len(conf)):
 
                 #m_tmp.append([self.transition_probabilities(conf[j][0], conf[j][1],True)])
                 self.transition_probabilities(conf[j][0], conf[j][1],True)
@@ -386,6 +386,6 @@ if __name__ == '__main__':
     print("----------------------- NUMBER OF CONFIG ----------------")
     print(len(Game.population_configuration()),"\n")
     print("----------------------- TRANSITION MATRIX ----------------")
-    #print(Game.transition_matrix())
+    print(Game.transition_matrix())
 
 
