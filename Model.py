@@ -250,8 +250,8 @@ class ClimateGame:
         fit = self.calculate_fitness(ir, ip) # Dp Dr Cp Cr
         Dp = self.poor - ip # Nbr of poor defector
         Dr = self.rich - ir # Nbr of rich defector
-        beta = 5.0
-        mu = 1/self.population_size
+        beta = 0.5
+        mu = 0.5
 
 
         T_prob = np.zeros(shape=(self.nb_strategies, self.nb_strategies))
@@ -312,24 +312,58 @@ class ClimateGame:
 
         return pop_conf
 
-    def transition_matrix(self):
+    def MarkovProcess(self, i_conf):
 
-        matrix = []
+        P_conf_0 = [self.poor - i_conf[1], i_conf[1], self.rich - i_conf[0], i_conf[0]]
 
-        conf = self.population_configuration()
+        # Adding one rich coop (Dr -> Cr)
+        conf_1 = (i_conf[0] + 1, i_conf[1])
+        P_conf_1 = [x + y for x, y in zip(P_conf_0, [0,0,-1,1])]
+        T_1_1 = self.transition_probabilities(i_conf[0] + 1, i_conf[1], rounding=False)[:,2] # Transitioning from i' to i -> Cr -> Dr
+        T_1_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False) [:,3] # T from i to i' -> Dr-> Cr
+        param_1_1 = [x * y for x, y in zip(T_1_1, P_conf_1)] # Matrice products more convenient
+        param_1_2 = [x * y for x, y in zip(T_1_1, P_conf_0)]
+        param1 = [x - y for x, y in zip(param_1_1, param_1_2)]
 
 
-        for i in range(len(conf))  and tqdm.trange(len(conf)):
-            m_tmp = []
+        # Adding one rich defector (Cr -> Dr)
+        conf_2 = (i_conf[0] - 1, i_conf[1])
+        P_conf_2 =  [x + y for x, y in zip(P_conf_0, [0,0,1,-1])]
+        T_2_1 = self.transition_probabilities(i_conf[0] - 1, i_conf[1], rounding=False)[:,3]
+        T_2_2 =self.transition_probabilities(i_conf[0], i_conf[1], rounding=False) [:,2]
+        param_2_1 = [x * y for x, y in zip(T_2_1, P_conf_2)]
+        param_2_2 = [x * y for x, y in zip(T_2_2, P_conf_0)]
+        param2 = [x - y for x, y in zip(param_2_1, param_2_2)]
 
-            for j in range(len(conf)):
 
-                #m_tmp.append([self.transition_probabilities(conf[j][0], conf[j][1],True)])
-                self.transition_probabilities(conf[j][0], conf[j][1],True)
+        # Adding one poor coop (Dp -> Cp )
+        conf_3 = (i_conf[0], i_conf[1] + 1)
+        P_conf_3 = [x + y for x, y in zip(P_conf_0, [-1,1,0,0])]
+        T_3_1 = self.transition_probabilities(i_conf[0], i_conf[1] + 1, rounding=False)[:,0]
+        T_3_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False)[:,1]
+        param_3_1 = [x * y for x, y in zip(T_3_1, P_conf_3)]
+        param_3_2 = [x * y for x, y in zip(T_3_2, P_conf_0)]
+        param3 = [x - y for x, y in zip(param_3_1, param_3_2)]
 
-            #matrix.append(m_tmp)
+        # Adding one poor defector (Cp -> Dp )
+        conf_4 = (i_conf[0], i_conf[1] - 1)
+        P_conf_4 =  [x + y for x, y in zip(P_conf_0, [1,-1,0,0])]
+        T_4_1 = self.transition_probabilities(i_conf[0], i_conf[1] - 1, rounding=False)[:, 1]
+        T_4_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False)[:, 0]
+        param_4_1 = [x * y for x, y in zip(T_3_1, P_conf_4)]
+        param_4_2 = [x * y for x, y in zip(T_3_2, P_conf_0)]
+        param4 = [x - y for x, y in zip(param_4_1, param_4_2)]
 
-        return matrix
+        delta_finale = [x + y + w + z for x, y, w, z in zip(param1, param2, param3, param4)]
+        delta_finale_arr = [round(i) for i in delta_finale]
+        P_t = [x + y for x, y in zip(P_conf_0, delta_finale_arr)]
+
+
+
+        return P_conf_0, P_t, delta_finale_arr
+
+
+
 
     @staticmethod
 
@@ -363,12 +397,12 @@ if __name__ == '__main__':
 
     population_size = 200
     group_size = 6
-    nb_rich = 39
-    nb_poor = 159
+    nb_rich = 40
+    nb_poor = 160
 
     profiles = [player_p, player_r]
     fraction_endowment = 0.25
-    homophily = 0
+    homophily = 0.5
     risk = 0.1
     M = 3  # Between 0 and group_size
 
@@ -381,11 +415,21 @@ if __name__ == '__main__':
     print("PAYOFF UNREACHED TRESHOLD: ", Game.play([0, 0, 0, 0], [0, 0, 0, 0]), "\n")
     print("------------------------ FITNESSES ---------------------")
     print(Game.calculate_fitness(39, 159), "\n")
+    print("----------------------- FULL TRANSITION PROB ----------------")
+    print(Game.transition_probabilities(20, 60, rounding=False), "\n")
     print("----------------------- TRANSITION PROB ----------------")
-    print(Game.transition_probabilities(20, 60, rounding= False), "\n")
+    print(Game.transition_probabilities(20, 60, rounding= False)[:,3], "\n")
     print("----------------------- NUMBER OF CONFIG ----------------")
     print(len(Game.population_configuration()),"\n")
     print("----------------------- TRANSITION MATRIX ----------------")
-    print(Game.transition_matrix())
+    #print(Game.transition_matrix())
+    print("----------------------- MARKOV PROCESS ----------------")
+    a,b,c = Game.MarkovProcess((20, 20))
+    print(" Initial Conf : ", a)
+    print(" Next Conf: ", b)
+    print(" Delta Conf: ", c)
+
+
+
 
 
