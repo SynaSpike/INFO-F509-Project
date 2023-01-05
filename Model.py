@@ -5,6 +5,8 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 (doi:10.1073/pnas.1323479111) Crossref, PubMed, ISI, Google Scholar
 """
 import random
+from typing import Union, Any
+
 from scipy.special import binom
 
 import egttools
@@ -15,12 +17,15 @@ import Player
 
 class ClimateGame:
 
+
     def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, strategies: list, profiles: list,
-                 fraction_endowment: float, homophily:float, risk:float, M:float, rich_end:int, poor_end:int) -> None:
+                 fraction_endowment: float, homophily:float, risk:float, M:float, rich_end:int, poor_end:int, nb_rich_sub:int, nb_poor_sub:int ) -> None:
         self.population_size = popuplation_size  # Z
         self.group_size = group_size  # N
         self.nb_group = self.population_size // self.group_size
         self.rich = nb_rich  # Zr
+        self.rich_sub = nb_rich_sub
+        self.poor_sub = nb_poor_sub
         self.rich_end = rich_end
         self.poor_end = poor_end
         self.poor = popuplation_size - nb_rich  # Zp
@@ -28,12 +33,11 @@ class ClimateGame:
         self.profiles = profiles  # Poor or Rich
         self.nb_strategies = 4  # Dp Dr Cp Cr
         self.fraction_endowment = fraction_endowment  # C
-        self.poor_coop = profiles[0].endowment * fraction_endowment
-        self.rich_coop = profiles[1].endowment * fraction_endowment
+        self.poor_coop = profiles[0].endowment * fraction_endowment # Cooperation of the Poor
+        self.rich_coop = profiles[1].endowment * fraction_endowment # Cooperation of the rich
         self.homophily = homophily  # h
         self.risk = risk  # r
-        self.treshold = M * fraction_endowment * ((self.poor_coop * self.poor) * (self.rich_coop * self.rich) /
-                                                  self.population_size)
+        self.treshold = M * fraction_endowment * ((((profiles[0].endowment * self.poor) + (profiles[1].endowment * self.rich)) /self.population_size))
         self.rich_pg = (self.rich / self.population_size) *  self.group_size  # Rich per group
         self.poor_pg = self.group_size - self.rich_pg   # Poor per group
 
@@ -121,8 +125,10 @@ class ClimateGame:
             # Get group composition
             self.play(group_composition, payoff_container) # Update the container with the new payoff following group_comp
 
+
             for strategy_index, strategy_payoff in enumerate(payoff_container):
                 self.payoffs_[strategy_index, i] = strategy_payoff
+
 
             # Reinitialize payoff vector
             payoff_container[:] = 0
@@ -152,12 +158,12 @@ class ClimateGame:
         game_payoffs[0] = self.profiles[0].endowment * (heav + (1 - self.risk) * (1 - heav))
         game_payoffs[1] = self.profiles[1].endowment * (heav + (1 - self.risk) * (1 - heav))
 
-        game_payoffs[2] = game_payoffs[0] - self.poor_coop * self.poor_pg
-        game_payoffs[3] = game_payoffs[1] - self.rich_coop * self.rich_pg
+        game_payoffs[2] = game_payoffs[0] - self.poor_coop
+        game_payoffs[3] = game_payoffs[1] - self.rich_coop
 
         return game_payoffs
 
-    def calculate_fitness(self, ir, ip, wealth:int, strat:int) -> float:
+    def calculate_fitness(self, ir, ip) -> float:
         """
         # strategy_index: int, pop_size: int, population_state: np.ndarray
         This method should return the fitness of strategy
@@ -166,70 +172,65 @@ class ClimateGame:
         :param: ip nbr of poor
 
         """
+    # rich cooperators
+        sum_1 = 0
 
-
-        # rich cooperators
-        if wealth == 1 and strat == 1:
-            sum_1 = 0
-
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size-jr-1, -1, -1):
-                    payoff = self.play([0, 0, jp, jr + 1], np.zeros(4))[3] # Rich coop
-                    # Do not care about the nbr of defector (does not affect payoff
-                    sum_2 += binom(ir - 1, jr) * binom(ip, jp) * binom(self.population_size - ir - ip,
-                                                                       self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
-
-            return binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
-
-
-        # rich defectors
-        if wealth == 1 and strat == 0:
-            sum_1 = 0
-
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size-jr-1, -1, -1):
-                    payoff = self.play([0, 0, jp, jr], np.zeros(4))[1]  # Rich defector
-                    # Do not care about the nbr of defector (does not affect payoff
-                    sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
-                                                                       self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
-
-            return binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
-
-        # poor cooperators
-        if wealth == 0 and strat == 1:
-            sum_1 = 0
-
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size-jr-1, -1, -1):
-                    payoff = self.play([0, 0, jp + 1, jr], np.zeros(4))[2]  # Poor coop
-                    # Do not care about the nbr of defector (does not affect payoff
-                    sum_2 += binom(ir, jr) * binom(ip - 1, jp) * binom(self.population_size - ir - ip,
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size-jr-1, -1, -1):
+                payoff = self.play([0, 0, jp, jr + 1], np.zeros(4))[3] # Rich coop
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += binom(ir - 1, jr) * binom(ip, jp) * binom(self.population_size - ir - ip,
                                                                    self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
+            sum_1 += sum_2
 
-            return binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+        RC = binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
 
-        # poor defectors
 
-        if wealth == 0 and strat == 0:
-            sum_1 = 0
+    # rich defectors
+        sum_1 = 0
 
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size-jr-1, -1, -1):
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size-jr-1, -1, -1):
+                payoff = self.play([0, 0, jp, jr], np.zeros(4))[1]  # Rich defector
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
+                                                                   self.group_size - 1 - jr - jp) * payoff
+            sum_1 += sum_2
 
-                    payoff = self.play([0, 0, jp, jr], np.zeros(4))[0]  # Poor defector
-                    # Do not care about the nbr of defector (does not affect payoff
-                    sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
-                                                                       self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
+        RD = binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
 
-            return binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+    # poor cooperators
+        sum_1 = 0
+
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size-jr-1, -1, -1):
+                payoff = self.play([0, 0, jp + 1, jr], np.zeros(4))[2]  # Poor coop
+                # Do not care about the nbr of defector (does not affect payoff
+                sum_2 += binom(ir, jr) * binom(ip - 1, jp) * binom(self.population_size - ir - ip,
+                                                               self.group_size - 1 - jr - jp) * payoff
+            sum_1 += sum_2
+
+        PC = binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+
+    # poor defectors
+        sum_1 = 0
+
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size-jr-1, -1, -1):
+
+                payoff = self.play([0, 0, jp, jr], np.zeros(4))[0]  # Poor defector
+                # Do not care about the nbr of defector (does not affect payoff
+                sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
+                                                                   self.group_size - 1 - jr - jp) * payoff
+            sum_1 += sum_2
+
+        PD = binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+
+        return [PD, RD, PC, RC]
 
 
     def transition_probabilities(self, ir, ip, population):
@@ -238,9 +239,15 @@ class ClimateGame:
         :return:
         """
 
+
         # Transition coop -> def poor
 
 
+    @staticmethod
+
+    def fermi(beta:float, fitness_diff:float):
+
+        return (1 + np.exp(beta*fitness_diff))**(-1)
 
     def __str__(self) -> str:
         """
@@ -306,14 +313,14 @@ if __name__ == '__main__':
     nb_rich = 40
 
     profiles = [player_p, player_r]
-    fraction_endowment = 0.1
+    fraction_endowment = 0.25
     homophily = 0.5
     risk = 0.1
     M = 3  # Between 0 and group_size
 
     Game = ClimateGame(popuplation_size= population_size, group_size= group_size,  nb_rich= nb_rich, strategies= strategies,
                        profiles= profiles, fraction_endowment= fraction_endowment, homophily= homophily, risk= risk, M= M,
-                       rich_end= 2.5, poor_end= 0.625)
+                       rich_end= 2.5, poor_end= 0.625, nb_rich_sub=159, nb_poor_sub=39)
 
     #print(len(Game.sample(0.8)[32]))
 
@@ -326,6 +333,8 @@ if __name__ == '__main__':
 
     #print(Game.payoffs_[:,32])
 
-    print(Game.calculate_fitness(198, 0, 0, 0))
+    print(Game.calculate_fitness(159, 39))
+
+    print(Game.calculate_payoffs())
 
 
