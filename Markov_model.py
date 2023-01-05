@@ -50,6 +50,20 @@ h = 0 #Homophily parameter (varying between 0 and 1)
 
 ############## Functions#############
 
+def add_lists(list1, list2):
+    result = [x1 + x2 for (x1, x2) in zip(list1, list2)]
+    return result
+
+def mult_lists(list1, list2):
+    result = [x1 * x2 for (x1, x2) in zip(list1, list2)]
+    return result
+
+def diff_lists(list1, list2):
+    result = [x1 - x2 for (x1, x2) in zip(list1, list2)]
+    return result
+def get_column(matrix, index):
+    return [row[index] for row in matrix]
+
 def O_(k):
     res = 0
     if k >=0:
@@ -200,13 +214,17 @@ def markov_model (Icr, Icp, Zr=Zr, Zp=Zp,Z=Z):
     transition_matrix = []
     for elem in strat:
         transition_matrix.append(transition(elem[0],elem[1], Idr, Icr, Idp, Icp))
+
     proba = np.dot(prev,transition_matrix)
+    print(sum(proba))
+
     new_pop = Z*proba
     new_pop_int = []
     for elem in new_pop:
         x = round(elem)
         new_pop_int.append(x)
     return population,new_pop_int
+
 
 def equilibrium(Icr, Icp):
     prev_pop = markov_model(Icr,Icp)[0]
@@ -233,35 +251,69 @@ def W(p,q):
             dico_q[i]=(Icr, Icp)
     return(dico_p[p],dico_q[q])
 
-def i_to_ip(previous_state, new_state, Zr=Zr, Zp=Zp, Z=Z):
-    res = 0
-    if previous_state[0] - new_state[0] >= 0:
-        while previous_state[0] != new_state[0]:
-            ip_to_i_trans = transition('R','C',previous_state[0],previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            i_to_ip_trans = transition('R','D',previous_state[0]-1,previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            pi = prevalence(previous_state[0],previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            pip = prevalence(previous_state[0]-1,previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            res += np.dot(i_to_ip_trans, pip) - ip_to_i_trans*pi
-            previous_state[0] = previous_state[0]-1
+def markov(initial_state, Zr=Zr, Zp=Zp, Z=Z):
+    strat = ['RD','RC','PD','PC']
+    res = [0,0,0,0]
+    Icr = initial_state[0]
+    Icp = initial_state[1]
+    Idr = Zr - Icr
+    Idp = Zp-Icp
 
-    elif previous_state[0] - new_state[0] <= 0:
-        while previous_state[0] != new_state[0]:
-            ip_to_i_trans = transition('R','D',previous_state[0],previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            i_to_ip_trans = transition('R','C',previous_state[0]+1,previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            pi = prevalence(previous_state[0], previous_state[1], Zr - previous_state[0], Zp - previous_state[1])
-            pip = prevalence(previous_state[0]+1, previous_state[1], Zr - previous_state[0], Zp - previous_state[1])
-            res += i_to_ip_trans * pip - ip_to_i_trans * pi
-            previous_state[0] = previous_state[0]+1
+    population = [Idr, Icr, Idp, Icp]
 
-    if previous_state[1] - new_state[1] >= 0:
-        while previous_state[1] != new_state[1]:
-            transition('P','C',previous_state[0],previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            previous_state[1] = previous_state[0]-1
+    #Matrice de transtion dans les 4 scénarios possibles
+    tm = [transition(elem[0], elem[1], Idr, Icr, Idp, Icp) for elem in strat]
+    tm_crp = [transition(elem[0], elem[1], Idr-1, Icr+1, Idp, Icp) for elem in strat]
+    tm_crm = [transition(elem[0], elem[1], Idr + 1, Icr - 1, Idp, Icp) for elem in strat]
+    tm_cpp = [transition(elem[0], elem[1], Idr, Icr, Idp - 1, Icp + 1) for elem in strat]
+    tm_cpm = [transition(elem[0], elem[1], Idr, Icr, Idp + 1, Icp - 1) for elem in strat]
 
-    elif previous_state[1] - new_state[1] <= 0:
-        while previous_state[1] != new_state[1]:
-            transition('R','D',previous_state[0],previous_state[1],Zr-previous_state[0],Zp-previous_state[1])
-            previous_state[1] = previous_state[1]+1
+    pi = prevalence(Idr , Icr, Idp, Icp)
+    pip_crp = prevalence(Idr - 1, Icr + 1, Idp, Icp)
+    pip_crm = prevalence(Idr + 1, Icr - 1, Idp, Icp)
+    pip_cpp = prevalence(Idr, Icr, Idp - 1, Icp + 1)
+    pip_cpm = prevalence(Idr, Icr, Idp + 1, Icp - 1)
+
+    #CR +1
+    Tiip = tm_crp
+    Tipi = tm
+    print(np.dot(pip_crp,Tiip))
+    print(np.dot(pi,Tipi))
+    print('CR +1:',diff_lists(np.dot(pip_crp,Tiip),np.dot(pi,Tipi)))
+    res = add_lists(res,diff_lists(np.dot(pip_crp,Tiip),np.dot(pi,Tipi)))
+
+    #CR -1
+    Tiip = tm_crm
+    Tipi = tm
+    print(Tiip)
+    print('CR -1:',diff_lists(np.dot(pip_crm,Tiip),np.dot(pi,Tipi)))
+    res = add_lists(res,diff_lists(np.dot(pip_crm,Tiip),np.dot(pi,Tipi)))
+
+    #CP +1
+    Tiip = tm_cpp
+    Tipi = tm
+    print('CP +1:',diff_lists(np.dot(pip_cpp,Tiip),np.dot(pi,Tipi)))
+    res = add_lists(res,diff_lists(np.dot(pip_cpp,Tiip),np.dot(pi,Tipi)))
+
+    # CP -1
+    Tiip = tm_cpm
+    Tipi = tm
+    print('CP -1:',diff_lists(np.dot(pip_cpm,Tiip),np.dot(pi,Tipi)))
+    res = add_lists(res,diff_lists(np.dot(pip_cpm,Tiip),np.dot(pi,Tipi)))
+
+
+    proba = np.dot(res,Z)
+    diff_pop = []
+    for elem in proba:
+        x = round(elem)
+        diff_pop.append(x)
+    new_pop = diff_lists(population,diff_pop)
+
+    return res,population, new_pop
+
+
+print(markov((20, 10)))
+
 
 
 ###### Main code ######
