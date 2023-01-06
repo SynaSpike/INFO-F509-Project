@@ -5,8 +5,7 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 (doi:10.1073/pnas.1323479111) Crossref, PubMed, ISI, Google Scholar
 """
 import random
-import time
-import tqdm
+import matplotlib.pyplot as plt
 
 from scipy.special import binom
 
@@ -484,7 +483,23 @@ class ClimateGame:
 
 
 
+    def Plot(self, grad_iR, grad_iP ):
 
+        fig, ax = plt.subplots(figsize=(3, 6))
+
+        iR = list(range(self.rich + 1))
+        iP = list(range(self.poor + 1))
+
+        ax.quiver(iR, iP, grad_iR, grad_iP)
+
+        ax.set_xlim((-1, self.rich + 1))
+        ax.set_ylim((-1, self.poor + 1))
+
+        ax.set_xlabel(r'rich cooperators, $i_R$')
+        ax.set_ylabel(r'poor cooperators, $i_P$')
+        plt.axis('scaled')
+        plt.tight_layout()
+        plt.show()
 
     @staticmethod
 
@@ -565,7 +580,8 @@ if __name__ == '__main__':
 
 """
 a,b = Game.Enum_config(4,10)
-print(Game.Generate_W_GoS(a, b))
+W, grad_iR, grad_iP = Game.Generate_W_GoS(a, b)
+Game.Plot(grad_iR, grad_iP)
 
 
 
