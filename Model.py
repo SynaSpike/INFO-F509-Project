@@ -7,138 +7,77 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 import random
 from typing import Union, Any
 
-from scipy.special import binom
+from scipy.special import comb as comb
 
 import egttools
 import numpy as np
 import PGGStrategy
 import Player
 import math
-
+from scipy.linalg import eig as eig
 
 class ClimateGame:
 
+    def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, fraction_endowment: float, homophily: float,
+                 risk: float, M: float, rich_endowment: int, poor_endowment: int, mu: float, beta: float) -> None:
 
-    def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, strategies: list, profiles: list,
-                 fraction_endowment: float, homophily:float, risk:float, M:float, rich_end:int, poor_end:int,
-                 nb_rich_sub:int, nb_poor_sub:int, mu:float, beta:float) -> None:
         self.population_size = popuplation_size  # Z
         self.group_size = group_size  # N
         self.nb_group = self.population_size // self.group_size
         self.rich = nb_rich  # Zr
-        self.rich_sub = nb_rich_sub
-        self.poor_sub = nb_poor_sub
-        self.rich_end = rich_end
-        self.poor_end = poor_end
+        self.rich_endowment = rich_endowment
+        self.poor_endowment = poor_endowment
         self.poor = popuplation_size - nb_rich  # Zp
-        self.strategies = strategies  # Ds or Cs
-        self.profiles = profiles  # Poor or Rich
+
+        strategy_defect = PGGStrategy.PGGStrategy(0)
+        strategy_coop = PGGStrategy.PGGStrategy(1)
+        self.strategies = [strategy_defect, strategy_coop]  # Ds or Cs
+
+        player_p = Player.Player(0, poor_endowment, self.strategies)
+        player_r = Player.Player(1, rich_endowment, self.strategies)
+        self.profiles = [player_p, player_r]  # Poor or Rich
+
         self.nb_strategies = 4  # Dp Dr Cp Cr
         self.fraction_endowment = fraction_endowment  # C
-        self.poor_coop = profiles[0].endowment * fraction_endowment # Cooperation of the Poor
-        self.rich_coop = profiles[1].endowment * fraction_endowment # Cooperation of the rich
+        self.poor_contribution = poor_endowment * fraction_endowment  # Contribution of the Poor
+        self.rich_contribution = rich_endowment * fraction_endowment  # Contribution of the rich
         self.homophily = homophily  # h
         self.risk = risk  # r
-        self.treshold = M * fraction_endowment * ((((profiles[0].endowment * self.poor) + (profiles[1].endowment * self.rich)) /self.population_size))
-        self.rich_pg = (self.rich / self.population_size) *  self.group_size  # Rich per group
-        self.poor_pg = self.group_size - self.rich_pg   # Poor per group
+        self.b_bar = ((poor_endowment * self.poor) + (rich_endowment * self.rich)) / self.population_size
+        self.threshold = M * fraction_endowment * self.b_bar
         self.mu = mu
         self.beta = beta
 
-        self.nb_group_configurations_ = egttools.calculate_nb_states(self.group_size, self.nb_strategies)
-        self.payoffs_ = np.zeros(shape=(self.nb_strategies,self.nb_group))
+        populations_configurations = []
+        populations_configurations_index = {}
+        index = 0
 
-        self.population = [] #  Player population
-        self.groups = self.sample(nb_rich / popuplation_size)
+        for ip in range(self.poor + 1):
+            for ir in range(self.rich + 1):
+                populations_configurations.append((ir, ip))
+                populations_configurations_index[(ir, ip)] = index
+                index += 1
 
-        #  Initialize payoff matrix
-        self.calculate_payoffs()
+        self.W = np.zeros((index, index))
+        self.populations_configurations_index = populations_configurations_index
+        self.populations_transitions_results = {} # moyen de calculer les gradients de selections a partir de ca si nécessaire
 
-    def sample(self, wealth_ratio):
-        """
-        :return: np.ndarray shape(nb.groups,2) of number of poor and rich.
-        """
+        for index, pop_config in enumerate(populations_configurations):
+            self.calculate_population_transitions(pop_config)
 
-        num_rich = int(self.population_size * wealth_ratio)
-        num_poor = self.population_size - num_rich
-        self.population = []
+        eigs, leftv, rightv = eig(self.W, left=True, right=True)
+        domIdx = np.argmax(np.real(eigs))  # index of the dominant eigenvalue
+        L = np.real(eigs[domIdx])  # the dominant eigenvalue
+        p = np.real(rightv[:, domIdx])  # the right-eigenvector is the relative proportions in classes at ss
+        p = p / np.sum(p)  # normalise it
+        print(p)
 
-        for i in range(num_rich):
-            self.population.append(Player.Player(wealth = 1, endowment= self.rich_end, strategy= random.choice(self.strategies)))
-        for i in range(num_poor):
-            self.population.append(Player.Player(wealth = 0, endowment= self.poor_end, strategy= random.choice(self.strategies)))
+        ng = 0
+        for index, P_bar_i in enumerate(p):
+            ir, ip = populations_configurations[index]
+            ng += P_bar_i * self.calculate_ag(ir, ip)
 
-        random.shuffle(self.population)
-
-        groups = [self.population[i:i + self.group_size] for i in range(0, self.group_size*self.nb_group, self.group_size)]
-
-        return groups
-
-    def get_comp(self, group):
-
-        comp = np.zeros(self.nb_strategies)
-
-        for plr in group:
-
-            if plr.wealth == 0 and plr.strategy.action == 0:
-                comp[0] += 1
-            if plr.wealth == 1 and plr.strategy.action == 0:
-                comp[1] += 1
-            if plr.wealth == 0 and plr.strategy.action == 1:
-                comp[2] += 1
-            if plr.wealth == 1 and plr.strategy.action == 1:
-                comp[3] += 1
-
-        return comp
-
-    def get_nbr_cat(self, population: list):
-        """
-        :param population: List of Player population
-        :return: the number of (wealth; strat)
-        """
-
-        Dp = 0
-        Dr = 0
-        Cp = 0
-        Cr = 0
-
-        for plr in range(population):
-
-            if plr.wealth == 0 and plr.strategy.action == 0:
-                Dp += 1
-            if plr.wealth == 1 and plr.strategy.action == 0:
-                Dr += 1
-            if plr.wealth == 0 and plr.strategy.action == 1:
-                Cp += 1
-            if plr.wealth == 1 and plr.strategy.action == 1:
-                Cr += 1
-
-        return [Dp, Dr, Cp, Cr]
-
-
-    def calculate_payoffs(self) -> np.ndarray:
-        """
-        :return: payoff array Dp, Dr, Cp, Cr
-        """
-        payoff_container = np.zeros(self.nb_strategies)  # 4 different strategies Dp, Dr, Cp, Cr
-
-        for i in range(self.nb_group):
-
-            group_composition = self.get_comp(self.groups[i])
-
-            # Get group composition
-            self.play(group_composition, payoff_container) # Update the container with the new payoff following group_comp
-
-
-            for strategy_index, strategy_payoff in enumerate(payoff_container):
-                self.payoffs_[strategy_index, i] = strategy_payoff
-
-
-            # Reinitialize payoff vector
-            payoff_container[:] = 0
-        return self.payoffs_
-
-    def play(self, group_composition, game_payoffs: np.ndarray) -> None:
+    def return_payoff(self, group_composition) -> None:
         """
         Calculates the payoff of each strategy inside the group.
 
@@ -150,20 +89,17 @@ class ClimateGame:
             container for the payoffs of each strategy
         """
 
-        k = self.rich_coop * group_composition[3] + self.poor_coop * group_composition[2] - self.treshold
+        game_payoffs = np.zeros(self.nb_strategies)
 
-        if k >= 0:
-            heav = 1
+        k = self.rich_contribution * group_composition[3] + self.poor_contribution * group_composition[2] - self.threshold
 
-        else:
-            heav = 0
-
+        heav = k >= 0 and 1 or 0
 
         game_payoffs[0] = self.profiles[0].endowment * (heav + (1 - self.risk) * (1 - heav))
         game_payoffs[1] = self.profiles[1].endowment * (heav + (1 - self.risk) * (1 - heav))
 
-        game_payoffs[2] = game_payoffs[0] - self.poor_coop
-        game_payoffs[3] = game_payoffs[1] - self.rich_coop
+        game_payoffs[2] = game_payoffs[0] - self.poor_contribution
+        game_payoffs[3] = game_payoffs[1] - self.rich_contribution
 
         return game_payoffs
 
@@ -176,67 +112,65 @@ class ClimateGame:
         :param: ip nbr of poor
 
         """
-    # rich cooperators
+        # rich cooperators
         sum_1 = 0
 
         for jr in range(self.group_size):
             sum_2 = 0
-            for jp in range(self.group_size-jr-1, -1, -1):
-                payoff = self.play([0, 0, jp, jr + 1], np.zeros(4))[3] # Rich coop
+            for jp in range(self.group_size - jr - 1, -1, -1):
+                payoff = self.return_payoff([0, 0, jp, jr + 1])[3]
                 # Do not care about the nbr of defector (does not affect payoff)
-                sum_2 += binom(ir - 1, jr) * binom(ip, jp) * binom(self.population_size - ir - ip,
+                sum_2 += comb(ir - 1, jr) * comb(ip, jp) * comb(self.population_size - ir - ip,
                                                                    self.group_size - 1 - jr - jp) * payoff
             sum_1 += sum_2
 
-        RC = binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
+        RC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
-
-    # rich defectors
+        # rich defectors
         sum_1 = 0
 
         for jr in range(self.group_size):
             sum_2 = 0
-            for jp in range(self.group_size-jr-1, -1, -1):
-                payoff = self.play([0, 0, jp, jr], np.zeros(4))[1]  # Rich defector
+            for jp in range(self.group_size - jr - 1, -1, -1):
+                payoff = self.return_payoff([0, 0, jp, jr])[1]
                 # Do not care about the nbr of defector (does not affect payoff)
-                sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
-                                                                   self.group_size - 1 - jr - jp) * payoff
-            sum_1 += sum_2
-
-        RD = binom(self.population_size - 1, self.group_size - 1)**(-1) * sum_1
-
-    # poor cooperators
-        sum_1 = 0
-
-        for jr in range(self.group_size):
-            sum_2 = 0
-            for jp in range(self.group_size-jr-1, -1, -1):
-                payoff = self.play([0, 0, jp + 1, jr], np.zeros(4))[2]  # Poor coop
-                # Do not care about the nbr of defector (does not affect payoff
-                sum_2 += binom(ir, jr) * binom(ip - 1, jp) * binom(self.population_size - ir - ip,
+                sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
                                                                self.group_size - 1 - jr - jp) * payoff
             sum_1 += sum_2
 
-        PC = binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+        RD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
-    # poor defectors
+        # poor cooperators
         sum_1 = 0
 
         for jr in range(self.group_size):
             sum_2 = 0
-            for jp in range(self.group_size-jr-1, -1, -1):
-
-                payoff = self.play([0, 0, jp, jr], np.zeros(4))[0]  # Poor defector
-                # Do not care about the nbr of defector (does not affect payoff
-                sum_2 += binom(ir, jr) * binom(ip, jp) * binom(self.population_size - 1 - ir - ip,
+            for jp in range(self.group_size - jr - 1, -1, -1):
+                payoff = self.return_payoff([0, 0, jp + 1, jr])[2]
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += comb(ir, jr) * comb(ip - 1, jp) * comb(self.population_size - ir - ip,
                                                                    self.group_size - 1 - jr - jp) * payoff
             sum_1 += sum_2
 
-        PD = binom(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+        PC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+
+        # poor defectors
+        sum_1 = 0
+
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size - jr - 1, -1, -1):
+                payoff = self.return_payoff([0, 0, jp, jr])[0]
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
+                                                               self.group_size - 1 - jr - jp) * payoff
+            sum_1 += sum_2
+
+        PD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
         return [PD, RD, PC, RC]
 
-    def transition_probability(self, ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY):
+    def transition_probability(self, Zk, Zl, ikX, ikY, ilY, fkX, fkY, flY):
         # an individual with strategy X∈{C,D} in the subpopulation k∈{R,P} changes to a different strategy
         # Y∈{C,D}, both from the same subpopulation k and from the other population l
         # l = P if k = R, and l = R if k = P
@@ -244,151 +178,90 @@ class ClimateGame:
         beta = self.beta
         Z = self.population_size
         h = self.homophily
-        print("ikX:", ikX, "ikY:", ikY, "ilY:", ilY, "Zk:", Zk, "Zl:", Zl, "fkX:", fkX, "fkY:", fkY, "flY:", flY)
+        # print("ikX:", ikX, "ikY:", ikY, "ilY:", ilY, "Zk:", Zk, "Zl:", Zl, "fkX:", fkX, "fkY:", fkY, "flY:", flY)
 
         fermi_1 = (1 + math.e ** (beta * (fkX - fkY))) ** -1
         fermi_2 = (1 + math.e ** (beta * (fkX - flY))) ** -1
         param1 = ikY / (Zk - 1 + (1 - h) * Zl)
         param2 = ((1 - h) * ilY) / (Zk - 1 + (1 - h) * Zl)
-        print(fermi_1, fermi_2, param1, param2)
+        # print(fermi_1, fermi_2, param1, param2)
+
         return (ikX / Z) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
 
-    def transition_probabilities(self, ir, ip):
-        print("ir:", ir, "ip:", ip)
-        """
-        This function is used to return T
-        :return:
-        """
-
+    def calculate_population_transitions(self, pop_config):
+        ir, ip = pop_config
+        index = self.populations_configurations_index[(ir, ip)]
         fitness = self.calculate_fitness(ir, ip)
-        # [PD, RD, PC, RC]
-        print("Fitness[PD, RD, PC, RC]:", fitness)
 
-        print("")
-        print("Transition kX = poor coop -> kY = poor defect")
-        # k = pauvre, l = riche, X = coop, Y = defect
-        Zk = self.poor
-        Zl = self.rich
-        ikX = ip
-        ikY = Zk - ip
-        ilY = Zl - ir
-        fkX = fitness[2]
-        fkY = fitness[0]
-        flY = fitness[1]
-        PC_to_PD = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+        population_transitions = [
+            (1, -1, 0, 0),
+            (-1, 1, 0, 0),
+            (0, 0, 1, -1),
+            (0, 0, -1, 1),
+            (0, 0, 0, 0)
+        ]
 
-        print("")
-        print("Transition kX = poor defect -> kY = poor coop")
-        # k = pauvre, l = riche, X = defect, Y = coop
-        Zk = self.poor
-        Zl = self.rich
-        ikX = Zk - ip
-        ikY = ip
-        ilY = ir
-        fkX = fitness[0]
-        fkY = fitness[2]
-        flY = fitness[3]
-        PD_to_PC = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+        transitions_results = {}
 
-        print("")
-        print("Transition kX = rich coop -> kY = rich defect")
-        # k = rich, l = poor, X = coop, Y = defect
-        Zk = self.rich
-        Zl = self.poor
-        ikX = ir
-        ikY = Zk - ir
-        ilY = Zl - ip
-        fkX = fitness[3]
-        fkY = fitness[1]
-        flY = fitness[0]
-        RC_to_RD = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+        for transition in population_transitions:
+            ir_prime = pop_config[0] + transition[0]
+            ip_prime = pop_config[1] + transition[2]
+            result = 0
 
-        print("")
-        print("Transition kX = rich defect -> kY = rich coop")
-        # k = rich, l = poor, X = defect, Y = coop
-        Zk = self.rich
-        Zl = self.poor
-        ikX = Zk - ir
-        ikY = ir
-        ilY = ip
-        fkX = fitness[1]
-        fkY = fitness[3]
-        flY = fitness[2]
-        RD_to_RC = self.transition_probability(ikX, ikY, ilY, Zk, Zl, fkX, fkY, flY)
+            if 0 <= ir_prime <= self.rich and 0 <= ip_prime <= self.poor:
+                transition_index = self.populations_configurations_index[(ir_prime, ip_prime)]
 
-        return [PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]
+                if transition == (1, -1, 0, 0):
+                    # print("")
+                    # print("Transition kX = rich defect -> kY = rich coop")
+                    # k = rich, l = poor, X = defect, Y = coop
+                    result = self.transition_probability(Zk=self.rich, Zl=self.poor, ikX=self.rich-ir, ikY=ir, ilY=ip, fkX=fitness[1], fkY=fitness[3], flY=fitness[2])
 
+                elif transition == (-1, 1, 0, 0):
+                    # print("Transition kX = rich coop -> kY = rich defect")
+                    # k = rich, l = poor, X = coop, Y = defect
+                    result = self.transition_probability(Zk=self.rich, Zl=self.poor, ikX=ir, ikY=self.rich-ir, ilY=self.poor-ip, fkX=fitness[3], fkY=fitness[1], flY=fitness[0])
+
+                elif transition == (0, 0, 1, -1):
+                    # print("Transition kX = poor defect -> kY = poor coop")
+                    # k = pauvre, l = riche, X = defect, Y = coop
+                    result = self.transition_probability(Zk=self.poor, Zl=self.rich, ikX=self.poor-ip, ikY=ip, ilY=ir, fkX=fitness[0], fkY=fitness[2], flY=fitness[3])
+
+                elif transition == (0, 0, -1, 1):
+                    # print("Transition kX = poor coop -> kY = poor defect")
+                    # k = pauvre, l = riche, X = coop, Y = defect
+                    result = self.transition_probability(Zk=self.poor, Zl=self.rich, ikX=ip, ikY=self.poor-ip, ilY=self.rich-ir, fkX=fitness[2], fkY=fitness[0], flY=fitness[1])
+
+                elif transition == (0, 0, 0, 0):
+                    # print("pas de transition")
+                    result = 1-sum(transitions_results.values())
+
+                self.W[transition_index, index] = result
+
+            transitions_results[transition] = result
+
+        self.populations_transitions_results[(ir, ip)] = transitions_results
+
+    def calculate_ag(self, ir, ip):
+        # Multivariate hypergeometric sampling (fitness equations) to compute the (average) fraction of groups that
+        # reach a total of Mcb in contributions
+        return 0
 
     @staticmethod
-
-    def fermi(beta:float, fitness_diff:float):
-
-        return (1 + np.exp(beta*fitness_diff))**(-1)
-
     def __str__(self) -> str:
         """
         This method should return a string representation of the game.
         """
         return "ClimateGame Object"
 
-    pass
-
-    def nb_strategies(self) -> int:
-        """
-        This method should return the number of strategies which can play the game.
-        """
-
-    pass
-
-    def type(self) -> str:
-        """
-        This method should return a string representing the type of game.
-        """
-
-    pass
-
-    def payoffs(self) -> np.ndarray:
-        """
-        This method should return the payoff matrix of the game,
-        which gives the payoff of each strategy
-        in each given context.
-        """
-
-    pass
-
-    # def payoff(self, strategy: int, group_configuration: list[int]) -> float:
-    # """
-    # This method should return the payoff of a strategy
-    # for a given `group_configuration`, which gives
-    # the counts of each strategy in the group.
-    # This method only needs to be implemented for N-player games
-    # """
-
-    # pass
-
-    def save_payoffs(self, file_name: str) -> None:
-        """
-        This method should implement a mechanism to save
-        the payoff matrix and parameters of the game to permanent storage.
-        """
-
-    pass
-
 
 if __name__ == '__main__':
-
-    strategy_defect = PGGStrategy.PGGStrategy(0)
-    strategy_coop = PGGStrategy.PGGStrategy(1)
-    strategies = [strategy_defect, strategy_coop]
-
-    player_p = Player.Player(0, 0.625, strategies)
-    player_r = Player.Player(1, 2.5, strategies)
-
-    population_size = 200
+    population_size = 40
     group_size = 6
-    nb_rich = 40
+    nb_rich = 4
+    rich_endowment = 2.5
+    poor_endowment = 0.625
 
-    profiles = [player_p, player_r]
     fraction_endowment = 0.25
     homophily = 0.5
     risk = 0.1
@@ -396,24 +269,23 @@ if __name__ == '__main__':
     mu = .5
     beta = .5
 
-    Game = ClimateGame(popuplation_size= population_size, group_size= group_size,  nb_rich= nb_rich, strategies= strategies,
-                       profiles= profiles, fraction_endowment= fraction_endowment, homophily= homophily, risk= risk, M= M,
-                       rich_end= 2.5, poor_end= 0.625, nb_rich_sub=159, nb_poor_sub=39, mu=mu, beta=beta)
+    Game = ClimateGame(popuplation_size=population_size, group_size=group_size, nb_rich=nb_rich,
+                       fraction_endowment=fraction_endowment, homophily=homophily, risk=risk, M=M,
+                       rich_endowment=rich_endowment, poor_endowment=poor_endowment, mu=mu, beta=beta)
 
-    #print(len(Game.sample(0.8)[32]))
+    # print(len(Game.sample(0.8)[32]))
 
-    #for i in range(6):
-        #print(Game.sample(0.8)[32][i].get_wealth())
+    # for i in range(6):
+    # print(Game.sample(0.8)[32][i].get_wealth())
 
-    #a = Game.sample(0.8)[32]
-    #print(len(a))
-    #print(Game.get_comp(a))
+    # a = Game.sample(0.8)[32]
+    # print(len(a))
+    # print(Game.get_comp(a))
 
-    #print(Game.payoffs_[:,32])
+    # print(Game.payoffs_[:,32])
 
-    #print(Game.calculate_fitness(159, 39))
+    #print(Game.calculate_fitness(4, 26))
 
-    #print(Game.calculate_payoffs())
+    # print(Game.calculate_payoffs())
 
-    print("Results[PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]:", Game.transition_probabilities(ir=20,ip=60))
-
+    #print("Results[PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]:", Game.transition_probabilities(ir=20, ip=60))
