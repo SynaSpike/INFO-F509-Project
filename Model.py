@@ -250,8 +250,8 @@ class ClimateGame:
         fit = self.calculate_fitness(ir, ip) # Dp Dr Cp Cr
         Dp = self.poor - ip # Nbr of poor defector
         Dr = self.rich - ir # Nbr of rich defector
-        beta = 0.5
-        mu = 0.5
+        beta = 3.
+        mu = 1.4 * 1/self.population_size
 
 
         T_prob = np.zeros(shape=(self.nb_strategies, self.nb_strategies))
@@ -300,6 +300,52 @@ class ClimateGame:
 
         return T_prob
 
+    def T(self, ir:int, ip:int, k:str, X:str):
+        """
+        Calculate the Transition Probability a k-wealth individual (k in {R, P}) from strategy
+        X (X in {C, D}) to Y (opposite of X)
+        :return:
+        """
+        fit = self.calculate_fitness(ir, ip)  # Dp Dr Cp Cr
+        Dp = self.poor - ip  # Nbr of poor defector
+        Dr = self.rich - ir  # Nbr of rich defector
+        beta = 3.
+        mu = 1.4 * 1 / self.population_size
+
+        # Transition Cp -> Dp
+        if k == "P" and X == "C":
+            fermi_1 = (1 + np.exp(beta * (fit[2] - fit[0]))) ** -1  # Cp -> Dp
+            fermi_2 = (1 + np.exp((beta * (fit[2] - fit[1])))) ** -1  # Cp -> Dr
+            param1 = (Dp / (self.poor - 1 + (1 - self.homophily) * self.rich))
+            param2 = ((1 - self.homophily) * Dr) / (self.poor - 1 + (1 - self.homophily) * self.rich)
+            return (ip / self.population_size) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+        # Transition Cr -> Dr
+        if k == "R" and X == "C":
+            fermi_1 = (1 + np.exp(beta * (fit[3] - fit[1]))) ** -1  # Cr -> Dr
+            fermi_2 = (1 + np.exp((beta * (fit[3] - fit[0])))) ** -1  # Cr -> Dp
+            param1 = (Dr / (self.rich - 1 + (1 - self.homophily) * self.poor))
+            param2 = ((1 - self.homophily) * Dp) / (self.rich - 1 + (1 - self.homophily) * self.poor)
+            return (ir / self.population_size) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+        # Transition Dp -> Cp
+        if k == "P" and X == "D":
+            fermi_1 = (1 + np.exp(beta * (fit[0] - fit[2]))) ** -1  # Dp -> Cp
+            fermi_2 = (1 + np.exp((beta * (fit[0] - fit[3])))) ** -1  # Dp -> Cr
+            param1 = (ip / (self.poor - 1 + (1 - self.homophily) * self.rich))
+            param2 = ((1 - self.homophily) * ir) / (self.poor - 1 + (1 - self.homophily) * self.rich)
+            return (Dp / self.population_size) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+        # Transition Dr -> Cr
+        if k == "R" and X == "D":
+            fermi_1 = (1 + np.exp(beta * (fit[1] - fit[3]))) ** -1  # Dr -> Cr
+            fermi_2 = (1 + np.exp((beta * (fit[1] - fit[2])))) ** -1  # Dr -> Cp
+            param1 = (ir / (self.rich - 1 + (1 - self.homophily) * self.poor))
+            param2 = ((1 - self.homophily) * ip) / (self.rich - 1 + (1 - self.homophily) * self.poor)
+            return (Dr / self.population_size) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
+
+
+
     def population_configuration(self):
 
         pop_conf = []
@@ -316,51 +362,77 @@ class ClimateGame:
 
         P_conf_0 = [self.poor - i_conf[1], i_conf[1], self.rich - i_conf[0], i_conf[0]]
 
+
         # Adding one rich coop (Dr -> Cr)
-        conf_1 = (i_conf[0] + 1, i_conf[1])
         P_conf_1 = [x + y for x, y in zip(P_conf_0, [0,0,-1,1])]
-        T_1_1 = self.transition_probabilities(i_conf[0] + 1, i_conf[1], rounding=False)[:,2] # Transitioning from i' to i -> Cr -> Dr
-        T_1_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False) [:,3] # T from i to i' -> Dr-> Cr
+        T_1_1 = self.transition_probabilities(i_conf[0] + 1, i_conf[1], rounding=False)[2,:] # Transitioning from i' to i -> Cr -> Dr
+        T_1_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False) [3,:] # T from i to i' -> Dr-> Cr
         param_1_1 = [x * y for x, y in zip(T_1_1, P_conf_1)] # Matrice products more convenient
-        param_1_2 = [x * y for x, y in zip(T_1_1, P_conf_0)]
+        param_1_2 = [x * y for x, y in zip(T_1_2, P_conf_0)]
         param1 = [x - y for x, y in zip(param_1_1, param_1_2)]
+
+        print("T_1_1: ", T_1_1)
+        print("T_1_2: ", T_1_2)
+        print("param_1_1: ", param_1_1)
+        print("param_1_2: ", param_1_2)
+        print("P_conf_0: ", P_conf_0)
+        print("P_conf_1: ", P_conf_1)
+        print("param: ", param1)
 
 
         # Adding one rich defector (Cr -> Dr)
-        conf_2 = (i_conf[0] - 1, i_conf[1])
         P_conf_2 =  [x + y for x, y in zip(P_conf_0, [0,0,1,-1])]
-        T_2_1 = self.transition_probabilities(i_conf[0] - 1, i_conf[1], rounding=False)[:,3]
-        T_2_2 =self.transition_probabilities(i_conf[0], i_conf[1], rounding=False) [:,2]
+        T_2_1 = self.transition_probabilities(i_conf[0] - 1, i_conf[1], rounding=False)[3,:]
+        T_2_2 =self.transition_probabilities(i_conf[0], i_conf[1], rounding=False) [2,:]
         param_2_1 = [x * y for x, y in zip(T_2_1, P_conf_2)]
         param_2_2 = [x * y for x, y in zip(T_2_2, P_conf_0)]
         param2 = [x - y for x, y in zip(param_2_1, param_2_2)]
 
 
         # Adding one poor coop (Dp -> Cp )
-        conf_3 = (i_conf[0], i_conf[1] + 1)
         P_conf_3 = [x + y for x, y in zip(P_conf_0, [-1,1,0,0])]
-        T_3_1 = self.transition_probabilities(i_conf[0], i_conf[1] + 1, rounding=False)[:,0]
-        T_3_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False)[:,1]
+        T_3_1 = self.transition_probabilities(i_conf[0], i_conf[1] + 1, rounding=False)[0,:]
+        T_3_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False)[1,:]
         param_3_1 = [x * y for x, y in zip(T_3_1, P_conf_3)]
         param_3_2 = [x * y for x, y in zip(T_3_2, P_conf_0)]
         param3 = [x - y for x, y in zip(param_3_1, param_3_2)]
 
         # Adding one poor defector (Cp -> Dp )
-        conf_4 = (i_conf[0], i_conf[1] - 1)
         P_conf_4 =  [x + y for x, y in zip(P_conf_0, [1,-1,0,0])]
-        T_4_1 = self.transition_probabilities(i_conf[0], i_conf[1] - 1, rounding=False)[:, 1]
-        T_4_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False)[:, 0]
-        param_4_1 = [x * y for x, y in zip(T_3_1, P_conf_4)]
-        param_4_2 = [x * y for x, y in zip(T_3_2, P_conf_0)]
+        T_4_1 = self.transition_probabilities(i_conf[0], i_conf[1] - 1, rounding=False)[1, :]
+        T_4_2 = self.transition_probabilities(i_conf[0], i_conf[1], rounding=False)[0, :]
+        param_4_1 = [x * y for x, y in zip(T_4_1, P_conf_4)]
+        param_4_2 = [x * y for x, y in zip(T_4_2, P_conf_0)]
         param4 = [x - y for x, y in zip(param_4_1, param_4_2)]
 
         delta_finale = [x + y + w + z for x, y, w, z in zip(param1, param2, param3, param4)]
         delta_finale_arr = [round(i) for i in delta_finale]
         P_t = [x + y for x, y in zip(P_conf_0, delta_finale_arr)]
 
+        print("Conf 0: ", P_conf_0)
+        print("Conf 1: ", P_conf_1)
+        print("Conf 2: ", P_conf_2)
+        print("Conf 3: ", P_conf_3)
+        print("Conf 4: ", P_conf_4)
+
 
 
         return P_conf_0, P_t, delta_finale_arr
+
+    def Enum_config(self, ir, ip):
+
+        i_conf = [(ir, ip) for ip in range(self.population_size + 1) for ir in range(self.population_size + 1)]
+
+        dico_conf = { i: idx for idx, i in enumerate(i_conf) }
+
+        return i_conf, dico_conf
+
+    def Generate_W_GoS(self, i_conf):
+
+        W = np.zeros(shape=(len(i_conf), len(i_conf)))
+
+        grad_ir = np.zeros((self.poor + 1, self.rich + 1))  # rich on the x-axis
+        grad_ip = np.zeros((self.poor + 1, self.rich+ 1))
 
 
 
@@ -395,15 +467,15 @@ if __name__ == '__main__':
     player_p = Player.Player(0, 0.625, strategies)
     player_r = Player.Player(1, 2.5, strategies)
 
-    population_size = 200
+    population_size = 40
     group_size = 6
-    nb_rich = 40
-    nb_poor = 160
+    nb_rich = 8
+    nb_poor = 32
 
     profiles = [player_p, player_r]
-    fraction_endowment = 0.25
-    homophily = 0.5
-    risk = 0.1
+    fraction_endowment = 0.1
+    homophily = 0.
+    risk = 0.2
     M = 3  # Between 0 and group_size
 
     Game = ClimateGame(popuplation_size= population_size, group_size= group_size,  nb_rich= nb_rich, nb_poor=nb_poor, strategies= strategies,
@@ -424,10 +496,21 @@ if __name__ == '__main__':
     print("----------------------- TRANSITION MATRIX ----------------")
     #print(Game.transition_matrix())
     print("----------------------- MARKOV PROCESS ----------------")
-    a,b,c = Game.MarkovProcess((20, 20))
-    print(" Initial Conf : ", a)
-    print(" Next Conf: ", b)
-    print(" Delta Conf: ", c)
+    #a,b,c = Game.MarkovProcessV2((20, 60))
+    #print(" Initial Conf : ", a)
+    #print(" Next Conf: ", b)
+    #print(" Delta Conf: ", c)
+
+    print("----------------------- T COMPARISON ----------------")
+    print(Game.transition_probabilities(4,10, rounding=False), "\n")
+
+    print("----------------------- CONF COMPARISON ----------------")
+    print(len(Game.Enum_config(4,10)), "\n")
+
+    print("----------------------- T COMPARISON ----------------")
+    print(Game.T(4, 10,"R", "D"), "\n")
+
+
 
 
 
