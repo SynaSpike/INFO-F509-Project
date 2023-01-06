@@ -160,7 +160,7 @@ def transition(k,X, Idr, Icr, Idp, Icp,u=1/Z,beta=3,h=0):
 
         return [0,0, 1 - (Idp / Z * ((1-u)*(a+b)+u)),Idp / Z * ((1-u)*(a+b)+u)]
 
-
+print(transition('R','C',20,20,80,80))
 def GoS(Idr, Icr, Idp, Icp):
     ''' Function to compute the gradient of selection.
     For each configuration i =fiR; iPg,
@@ -216,6 +216,8 @@ def markov_model (Icr, Icp, Zr=Zr, Zp=Zp,Z=Z):
         transition_matrix.append(transition(elem[0],elem[1], Idr, Icr, Idp, Icp))
 
     proba = np.dot(prev,transition_matrix)
+    print(transition_matrix)
+    print(proba)
     print(sum(proba))
 
     new_pop = Z*proba
@@ -259,8 +261,6 @@ def markov(initial_state, Zr=Zr, Zp=Zp, Z=Z):
     Idr = Zr - Icr
     Idp = Zp-Icp
 
-    population = [Idr, Icr, Idp, Icp]
-
     #Matrice de transtion dans les 4 scénarios possibles
     tm = [transition(elem[0], elem[1], Idr, Icr, Idp, Icp) for elem in strat]
     tm_crp = [transition(elem[0], elem[1], Idr-1, Icr+1, Idp, Icp) for elem in strat]
@@ -268,51 +268,103 @@ def markov(initial_state, Zr=Zr, Zp=Zp, Z=Z):
     tm_cpp = [transition(elem[0], elem[1], Idr, Icr, Idp - 1, Icp + 1) for elem in strat]
     tm_cpm = [transition(elem[0], elem[1], Idr, Icr, Idp + 1, Icp - 1) for elem in strat]
 
-    pi = prevalence(Idr , Icr, Idp, Icp)
+    pi = prevalence(Idr, Icr, Idp, Icp)
     pip_crp = prevalence(Idr - 1, Icr + 1, Idp, Icp)
     pip_crm = prevalence(Idr + 1, Icr - 1, Idp, Icp)
     pip_cpp = prevalence(Idr, Icr, Idp - 1, Icp + 1)
     pip_cpm = prevalence(Idr, Icr, Idp + 1, Icp - 1)
 
     #CR +1
-    Tiip = tm_crp
-    Tipi = tm
-    print(np.dot(pip_crp,Tiip))
-    print(np.dot(pi,Tipi))
-    print('CR +1:',diff_lists(np.dot(pip_crp,Tiip),np.dot(pi,Tipi)))
-    res = add_lists(res,diff_lists(np.dot(pip_crp,Tiip),np.dot(pi,Tipi)))
+    Tiip = tm_crp[1]
+    Tipi = tm[0]
+    print(Tipi)
+    print(pi)
+    print(mult_lists(pi,Tipi))
+    print('CR +1:',diff_lists(mult_lists(pip_crp,Tiip),mult_lists(pi,Tipi)))
+    res = add_lists(res,diff_lists(mult_lists(pip_crp,Tiip),mult_lists(pi,Tipi)))
 
     #CR -1
-    Tiip = tm_crm
-    Tipi = tm
-    print(Tiip)
-    print('CR -1:',diff_lists(np.dot(pip_crm,Tiip),np.dot(pi,Tipi)))
-    res = add_lists(res,diff_lists(np.dot(pip_crm,Tiip),np.dot(pi,Tipi)))
+    Tiip = tm_crm[0]
+    Tipi = tm[1]
+    print('CR -1:',diff_lists(mult_lists(pip_crm,Tiip),mult_lists(pi,Tipi)))
+    res = add_lists(res,diff_lists(mult_lists(pip_crm,Tiip),mult_lists(pi,Tipi)))
 
     #CP +1
-    Tiip = tm_cpp
-    Tipi = tm
-    print('CP +1:',diff_lists(np.dot(pip_cpp,Tiip),np.dot(pi,Tipi)))
-    res = add_lists(res,diff_lists(np.dot(pip_cpp,Tiip),np.dot(pi,Tipi)))
+    Tiip = tm_cpp[3]
+    Tipi = tm[2]
+    print('CP +1:',diff_lists(mult_lists(pip_cpp,Tiip),mult_lists(pi,Tipi)))
+    res = add_lists(res,diff_lists(mult_lists(pip_cpp,Tiip),mult_lists(pi,Tipi)))
 
     # CP -1
-    Tiip = tm_cpm
-    Tipi = tm
-    print('CP -1:',diff_lists(np.dot(pip_cpm,Tiip),np.dot(pi,Tipi)))
-    res = add_lists(res,diff_lists(np.dot(pip_cpm,Tiip),np.dot(pi,Tipi)))
+    Tiip = tm_cpm[2]
+    Tipi = tm[3]
+    print('CP -1:',diff_lists(mult_lists(pip_cpm,Tiip),mult_lists(pi,Tipi)))
+    res = add_lists(res,diff_lists(mult_lists(pip_cpm,Tiip),mult_lists(pi,Tipi)))
+
+    return res
+
+def stationary_distribution(Zr=Zr,Zp=Zp):
+    strat = ['RD', 'RC', 'PD', 'PC']
+    for Icr in range(0, Zr):
+        for Icp in range(0, Zp):
+            Idr = Zr - Icr
+            Idp = Zp - Icp
+            transition_matrix = [transition(elem[0], elem[1], Idr, Icr, Idp, Icp) for elem in strat]
+            eigenvalues, eigenvectors = np.linalg.eig(transition_matrix)
+            index = np.where(eigenvalues == 1)[0][0]
+            stationary_distribution = eigenvectors[:, index]
+            print('--------------', (Icr, Icp), '--------------')
+            print("Eigenvalues:", eigenvalues)
+            print("Eigenvectors:", eigenvectors)
+            print("Stationary distribution:", stationary_distribution)
+
+#stationary_distribution()
+
+'''for Icr in range(0,Zr):
+    for Icp in range (0,Zp):
+        res = markov((Icr,Icp))
+        if res == [0,0,0,0]:
+            print('YOOUUUPIIIII --- ', (Icr, Icp),' ---')'''
 
 
-    proba = np.dot(res,Z)
-    diff_pop = []
-    for elem in proba:
+'''def markov_v2(initial_state, Zr=Zr, Zp=Zp, Z=Z):
+    strat = ['RD','RC','PD','PC']
+    res = [0,0,0,0]
+    Icr = initial_state[0]
+    Icp = initial_state[1]
+    Idr = Zr - Icr
+    Idp = Zp-Icp
+
+    population = [Icr, Icp, Idr, Idp]
+
+    tm = [transition(elem[0], elem[1], Idr, Icr, Idp, Icp) for elem in strat]
+    pi = prevalence(Idr, Icr, Idp, Icp)
+
+    proba = np.dot(pi, tm)
+    new_pop_float = Z * proba
+    new_pop = []
+    for elem in new_pop_float:
         x = round(elem)
-        diff_pop.append(x)
-    new_pop = diff_lists(population,diff_pop)
+        new_pop.append(x)
+    print(population, new_pop)
 
-    return res,population, new_pop
+    tmp = [transition(elem[0], elem[1], new_pop[0], new_pop[1], new_pop[2], new_pop[3]) for elem in strat]
+    pip = prevalence(new_pop[0], new_pop[1], new_pop[2], new_pop[3])
+    probap = np.dot(pip, tmp)
+    new_pop_float_p = Z * probap
+    new_pop_p = []
+    for elem in new_pop_float_p:
+        x = round(elem)
+        new_pop_p.append(x)
 
+    print(new_pop, new_pop_p)
 
-print(markov((20, 10)))
+    res = proba - probap
+
+    return res
+
+print(markov_v2((20, 80)))'''
+
 
 
 
@@ -365,3 +417,4 @@ for Icr in range(0,Zr):
         print('eigenvector:',eigenvector)'''
 
 
+print('XXXXXX',transition('R','P',20,20,80,80))
