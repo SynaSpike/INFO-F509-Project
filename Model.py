@@ -15,6 +15,7 @@ import PGGStrategy
 import Player
 import math
 from scipy.linalg import eig as eig
+from alive_progress import alive_bar
 
 class ClimateGame:
 
@@ -52,6 +53,7 @@ class ClimateGame:
         populations_configurations_index = {}
         index = 0
 
+        print("Setting up all possible population configuration...")
         for ip in range(self.poor + 1):
             for ir in range(self.rich + 1):
                 populations_configurations.append((ir, ip))
@@ -61,21 +63,30 @@ class ClimateGame:
         self.W = np.zeros((index, index))
         self.populations_configurations_index = populations_configurations_index
         self.populations_transitions_results = {} # moyen de calculer les gradients de selections a partir de ca si nécessaire
+        totalindex = index
 
+        print("Calculating population transitions...")
         for index, pop_config in enumerate(populations_configurations):
             self.calculate_population_transitions(pop_config)
 
+        print("Calculating eigen values...")
         eigs, leftv, rightv = eig(self.W, left=True, right=True)
+        print("Getting the index of the dominant eigenvalue...")
         domIdx = np.argmax(np.real(eigs))  # index of the dominant eigenvalue
+        print("Getting the dominant eigenvalue...")
         L = np.real(eigs[domIdx])  # the dominant eigenvalue
+        print("Getting the right-eigenvector...")
         p = np.real(rightv[:, domIdx])  # the right-eigenvector is the relative proportions in classes at ss
+        print("Normalising the relative proportions...")
         p = p / np.sum(p)  # normalise it
-        print(p)
 
+        print("Calculating ng...")
         ng = 0
         for index, P_bar_i in enumerate(p):
             ir, ip = populations_configurations[index]
             ng += P_bar_i * self.calculate_ag(ir, ip)
+
+        print("ng:", ng)
 
     def return_payoff(self, group_composition) -> None:
         """
@@ -117,7 +128,7 @@ class ClimateGame:
 
         for jr in range(self.group_size):
             sum_2 = 0
-            for jp in range(self.group_size - jr - 1, -1, -1):
+            for jp in range(self.group_size - jr):
                 payoff = self.return_payoff([0, 0, jp, jr + 1])[3]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir - 1, jr) * comb(ip, jp) * comb(self.population_size - ir - ip,
@@ -131,7 +142,7 @@ class ClimateGame:
 
         for jr in range(self.group_size):
             sum_2 = 0
-            for jp in range(self.group_size - jr - 1, -1, -1):
+            for jp in range(self.group_size - jr):
                 payoff = self.return_payoff([0, 0, jp, jr])[1]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
@@ -145,7 +156,7 @@ class ClimateGame:
 
         for jr in range(self.group_size):
             sum_2 = 0
-            for jp in range(self.group_size - jr - 1, -1, -1):
+            for jp in range(self.group_size - jr):
                 payoff = self.return_payoff([0, 0, jp + 1, jr])[2]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir, jr) * comb(ip - 1, jp) * comb(self.population_size - ir - ip,
@@ -159,7 +170,7 @@ class ClimateGame:
 
         for jr in range(self.group_size):
             sum_2 = 0
-            for jp in range(self.group_size - jr - 1, -1, -1):
+            for jp in range(self.group_size - jr):
                 payoff = self.return_payoff([0, 0, jp, jr])[0]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
@@ -242,10 +253,19 @@ class ClimateGame:
 
         self.populations_transitions_results[(ir, ip)] = transitions_results
 
-    def calculate_ag(self, ir, ip):
+    def contribution_reached(self, jR, jP):
+        if self.rich_contribution * jR + self.poor_contribution * jP >= self.threshold:
+            return 1
+        else:
+            return 0
+
+    def calculate_ag(self, iR, iP):
         # Multivariate hypergeometric sampling (fitness equations) to compute the (average) fraction of groups that
         # reach a total of Mcb in contributions
-        return 0
+        Z = self.population_size
+        N = self.group_size
+        return sum(comb(iR, jR) * comb(iP, jP) * comb(Z - iR - iP, N - jR - jP) * self.contribution_reached(jR, jP)
+                   for jR in range(N + 1) for jP in range(N + 1)) / comb(Z, N)
 
     @staticmethod
     def __str__(self) -> str:
@@ -257,17 +277,18 @@ class ClimateGame:
 
 if __name__ == '__main__':
     population_size = 40
+    nb_rich = 10
     group_size = 6
-    nb_rich = 4
-    rich_endowment = 2.5
-    poor_endowment = 0.625
+    rich_endowment = 1.7
+    poor_endowment = 0.3
 
-    fraction_endowment = 0.25
-    homophily = 0.5
-    risk = 0.1
+    fraction_endowment = 0.1
+    homophily = 0.7
+    risk = 0.2
     M = 3  # Between 0 and group_size
-    mu = .5
-    beta = .5
+
+    mu = 1/population_size
+    beta = 5
 
     Game = ClimateGame(popuplation_size=population_size, group_size=group_size, nb_rich=nb_rich,
                        fraction_endowment=fraction_endowment, homophily=homophily, risk=risk, M=M,
@@ -284,7 +305,8 @@ if __name__ == '__main__':
 
     # print(Game.payoffs_[:,32])
 
-    #print(Game.calculate_fitness(4, 26))
+    # print(Game.calculate_fitness(4, 4))
+    # [0.5271957179851917, 2.108782871940767, 0.49202061373114003, 2.0751206672259306]
 
     # print(Game.calculate_payoffs())
 
