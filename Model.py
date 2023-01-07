@@ -16,6 +16,7 @@ import Player
 import math
 from scipy.linalg import eig as eig
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyArrowPatch
 
 
 class ClimateGame:
@@ -33,14 +34,6 @@ class ClimateGame:
         self.poor_endowment = poor_endowment
         self.poor = popuplation_size - nb_rich  # Zp
 
-        strategy_defect = PGGStrategy.PGGStrategy(0)
-        strategy_coop = PGGStrategy.PGGStrategy(1)
-        self.strategies = [strategy_defect, strategy_coop]  # Ds or Cs
-
-        player_p = Player.Player(0, poor_endowment, self.strategies)
-        player_r = Player.Player(1, rich_endowment, self.strategies)
-        self.profiles = [player_p, player_r]  # Poor or Rich
-
         self.nb_strategies = 4  # Dp Dr Cp Cr
         self.fraction_endowment = fraction_endowment  # C
         self.poor_contribution = poor_endowment * fraction_endowment  # Contribution of the Poor
@@ -55,6 +48,7 @@ class ClimateGame:
         self.rich_evolution = rich_evolution
         self.poor_evolution = poor_evolution
 
+    def play(self):
         populations_configurations = []
         populations_configurations_index = {}
         index = 0
@@ -72,7 +66,6 @@ class ClimateGame:
         self.populations_transitions_results = {}  # moyen de calculer les gradients de selections a partir de ca si nécessaire
         self.totalindex = index
 
-    def play(self):
         print("Calculating population transitions...")
         for index, pop_config in enumerate(self.populations_configurations):
             self.calculate_population_transitions(pop_config)
@@ -118,6 +111,7 @@ class ClimateGame:
             self.gradient_poor[index_] = result[2] - result[3]
 
     def GraphStationaryDistribution(self):
+
         ZP = self.poor
         ZR = self.rich
         iV = self.populations_configurations
@@ -138,44 +132,61 @@ class ClimateGame:
         iPV = list(range(ZP + 1))
 
         im = ax.imshow(P, origin='lower', cmap='coolwarm_r', alpha=0.5)
-        # fig.colorbar(im)
-        ax.quiver(iRV, iPV, grad_iR, grad_iP)
 
-        # ax.quiver(iRV, iPV, np.zeros( (ZP+1, ZR+1) ), grad_iP)
-        # ax.quiver(iRV, iPV, grad_iR, np.zeros( (ZP+1, ZR+1) ))
+        arrow_every = 5
 
-        # ax.quiver(iRV, iPV, stay_iR, np.zeros( (ZP+1, ZR+1) ))
-        # ax.quiver(iRV, iPV, np.zeros( (ZP+1, ZR+1) ), stay_iP)
-
-        # ax.quiver(iRV, iPV, go_iR, np.zeros( (ZP+1, ZR+1) ))
-        # ax.quiver(iRV, iPV, np.zeros( (ZP+1, ZR+1) ), go_iP)
+        for index, gradient in enumerate(self.gradient_selection):
+            if int(index//arrow_every) != index/arrow_every:
+                continue
+            ir, ip = self.populations_configurations[index]
+            arrow = FancyArrowPatch((ir, ip), (ir + gradient[0] * 100, ip + gradient[1] * 100),
+                                    arrowstyle='simple', color='k', mutation_scale=10)
+            ax.add_patch(arrow)
 
         ax.set_xlim((-1, ZR + 1))
         ax.set_ylim((-1, ZP + 1))
-        # ax.set_aspect('scaled')
         ax.set_xlabel(r'rich cooperators, $i_R$')
         ax.set_ylabel(r'poor cooperators, $i_P$')
         plt.axis('scaled')
         plt.tight_layout()
         plt.show()
 
-    # def GraphOnePopEvolution(self, evolving_population:str, ratio_cooperators:list):
-    #
-    #     x = []
-    #     other_pop_size = self.population_size - evolv_popu_size
-    #     for evolv_pop_coop in range(evolv_popu_size):
-    #         x.append(evolv_pop_coop/evolv_popu_size)
-    #
-    #     for ratio in ratio_cooperators:
-    #         other_pop_coop = other_pop_size * ratio
-    #         y = []
-    #         for evolv_pop_coop in range(evolv_popu_size):
-    #             y =
+    def GraphOnePopEvolution(self, evolving_population:str, ratio_cooperators:list, rich_endowments:list):
 
+        evolv_pop_size = evolving_population == "R" and self.rich or self.poor
 
-        # y1 = [2, 4, 1]
-        # # plotting the line 1 points
-        # plt.plot(x, y1, label="line 1")
+        x = []
+        other_pop_size = self.population_size - evolv_pop_size
+
+        for evolv_pop_coop in range(evolv_pop_size):
+            x.append(evolv_pop_coop/evolv_pop_size)
+
+        for rich_endowment in rich_endowments:
+            self.rich_endowment = rich_endowment
+            self.poor_endowment = (self.population_size - (rich_endowment * self.rich))/self.poor
+            print(self.rich_endowment, self.poor_endowment)
+            self.poor_contribution = poor_endowment * fraction_endowment  # Contribution of the Poor
+            self.rich_contribution = rich_endowment * fraction_endowment  # Contribution of the rich
+            self.b_bar = ((poor_endowment * self.poor) + (rich_endowment * self.rich)) / self.population_size
+            self.threshold = M * fraction_endowment * self.b_bar
+
+            self.play()
+
+            evolv_pop_grad = evolving_population == "R" and self.gradient_rich or self.gradient_poor
+
+            for ratio in ratio_cooperators:
+                other_pop_coop = int(other_pop_size * ratio)
+                y = []
+                for evolv_pop_coop in range(evolv_pop_size):
+                    pop_config = evolving_population == "R" and (evolv_pop_coop, other_pop_coop) or (other_pop_coop, evolv_pop_coop)
+                    index_ = self.populations_configurations_index[pop_config]
+                    y.append(evolv_pop_grad[index_])
+
+                labeltext = str(ratio * 100)+"%"
+                plt.plot(x, y, rich_endowment == rich_endowments[0] and '-' or '--', label=labeltext)
+
+        plt.legend(loc='best')
+        plt.show()
 
     def return_payoff(self, group_composition) -> None:
         """
@@ -196,8 +207,8 @@ class ClimateGame:
 
         heav = k >= 0 and 1 or 0
 
-        game_payoffs[0] = self.profiles[0].endowment * (heav + (1 - self.risk) * (1 - heav))
-        game_payoffs[1] = self.profiles[1].endowment * (heav + (1 - self.risk) * (1 - heav))
+        game_payoffs[0] = self.poor_endowment * (heav + (1 - self.risk) * (1 - heav))
+        game_payoffs[1] = self.rich_endowment * (heav + (1 - self.risk) * (1 - heav))
 
         game_payoffs[2] = game_payoffs[0] - self.poor_contribution
         game_payoffs[3] = game_payoffs[1] - self.rich_contribution
@@ -381,18 +392,18 @@ if __name__ == '__main__':
     population_size = 200
     nb_rich = 100
     group_size = 6
-    rich_endowment = 1.7
-    poor_endowment = 0.3
+    rich_endowment = 1.35
+    poor_endowment = 0.65
 
     fraction_endowment = 0.1
     homophily = 0
-    risk = 0.2
+    risk = 0.3
     M = 3  # Between 0 and group_size
 
     mu = 1 / population_size
-    beta = 5
+    beta = 10
 
-    rich_evolution = 1
+    rich_evolution = 0
     poor_evolution = 1
 
     Game = ClimateGame(popuplation_size=population_size, group_size=group_size, nb_rich=nb_rich,
@@ -400,8 +411,9 @@ if __name__ == '__main__':
                        rich_endowment=rich_endowment, poor_endowment=poor_endowment, mu=mu, beta=beta,
                        rich_evolution=rich_evolution, poor_evolution=poor_evolution)
 
-    Game.play()
-    Game.GraphStationaryDistribution()
+    #Game.play()
+    #Game.GraphStationaryDistribution()
+    Game.GraphOnePopEvolution(evolving_population="P", ratio_cooperators=[.1, .5, .9], rich_endowments=[1.35, 1.75])
 
     # print(len(Game.sample(0.8)[32]))
 
