@@ -318,6 +318,7 @@ def stationary_distribution(Zr=Zr,Zp=Zp):
             print("Eigenvectors:", eigenvectors)
             print("Stationary distribution:", stationary_distribution)
 
+stationary_distribution()
 #stationary_distribution()
 
 '''for Icr in range(0,Zr):

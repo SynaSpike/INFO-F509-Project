@@ -9,58 +9,9 @@ import matplotlib.pyplot as plt
 from scipy.linalg import eig as eig
 import os
 
+suffix = '_test_count'
+
 # parameters
-# ---
-
-'''
-suffix = '_2A' # Fig 2A
-h = 0       # homophily
-r = 0.2     # risk
-beta = 3
-suffix = '_2B' # for this one, the attractor is actually in the middle if you increase mu (1.2*)
-h = 0.7     # homophily
-r = 0.2     # risk
-beta = 3
-suffix = '_2C' # this one's grad looks different to what they got, and when I increase mu the stationary distn moves to the middle (1.8*)
-h = 1       # homophily
-r = 0.2     # risk -- if I decrease this to 0.1 I get something more like what they got
-beta = 3
-suffix = '_2D'
-h = 0       # homophily
-r = 0.3     # risk
-beta = 3
-suffix = '_2E'
-h = 0.7     # homophily
-r = 0.3     # risk
-beta = 3
-suffix = '_2F' # this one is weird but increase mu and stops having stationary distn in bottom left corner
-h = 1.0     # homophily
-r = 0.3     # risk
-beta = 3
-suffix = '_2C_explore' # this one's grad looks different to what they got, and when I increase mu the stationary distn moves to the middle (1.8*)
-h = 1       # homophily
-r = 0.1     # risk -- if I decrease this to 0.1 I get something more like what they got
-beta = 3
-f = 1.8
-suffix = '_2B_explore' # I wonder if the sudden loss of cooperation is really just an edge effect
-h = 0.7
-r = 0.2
-beta = 3
-f = 1.4 # yes. I increase the mutation rate a bit here, and the cooperation is recovered close to what it was in 2A
-'''
-
-suffix = '_2A_explore'  # increase its mutation rate as well so I can do a more direct comparison to 2B
-suffix = '_test'
-
-'''
-suffix = '_spare' # this one is weird but increase mu and stops having stationary distn in bottom left corner
-h = 1.0     # homophily
-r = 0.3     # risk
-beta = 3
-f = 1
-'''
-
-# TODO I should find something that looks like their 2B with two attractors
 
 Z = 200 #Number of individuals in the population
 Zr = 40 #Number of rich individuals in the population
@@ -78,17 +29,14 @@ c = 0.1 #fraction of the endowment contributed by Cs to help solve the group tas
 Cr = c*br #Contribution of the rich Cs
 Cp = c*bp #Contribution of the poor Cs
 
-M = 3*c*b_hat #positive integer between O and N
+M = 3 #positive integer between O and N
 Mcb = M*c*b_hat #Threshold  for the target to be met
 
 r = 0.2 #Perception of risk (varying between 0 and 1)
-
 h = 0 #Homophily parameter (varying between 0 and 1)
         #When h = 1, individuals are restricted to influence by those of the same wealth status
         #When h = 0, no wealth discrimination takes place
-
 mu = (1/Z)
-
 beta = 3
 
 
@@ -127,7 +75,10 @@ fDP = lambda iR, iP: (1/comb(Z-1, N-1)) * \
         sum( sum(
             comb(iR, jR) * comb(iP, jP) * comb(Z-1-iR-iP, N-1-jR-jP) * PiDP(jR, jP)
             for jP in range(N-jR) ) for jR in range(N) )
-
+print('fCR:',fCR(20,80))
+print('fCP:',fCP(20,80))
+print('fDR:',fDR(20,80))
+print('fDP:',fDP(20,80))
 def fXk(iR, iP, X, k):
     if X == 'C' and k == 'R':
         res = fCR(iR, iP)
@@ -248,11 +199,10 @@ for idx, i in enumerate(iV):
 
 # get relative proportions of time spent in different states
 # ---
-
-eigs, leftv, rightv = eig(W, left=True, right=True)
-domIdx = np.argmax(np.real(eigs))  # index of the dominant eigenvalue
-L = np.real(eigs[domIdx])  # the dominant eigenvalue
-p = np.real(rightv[:, domIdx])  # the right-eigenvector is the relative proportions in classes at steady state
+eigenvalues, eigenvectors = np.linalg.eig(W)
+domIdx = np.argmax(np.real(eigenvalues))  # index of the dominant eigenvalue
+L = np.real(eigenvalues[domIdx])
+p= np.real(eigenvectors[:, domIdx])
 p = p / np.sum(p)  # normalise
 p_dico = {i:p[idx] for idx, i in enumerate(iV)}
 
@@ -269,22 +219,29 @@ for idx, pi in enumerate(p):
 #probability to have the differenc conformation of groupe of size N in the population Z with a specific iR,iP population
 proba = lambda iR, iP,jR, jP, Z, N: (1/comb(Z, N)) * comb(iR, jR) * comb(iP, jP) * comb(Z-iR-iP, N-jR-jP)
 
-aG = []
-for idx, i in enumerate(iV):
-    iR, iP = i
-    res = 0
-    for jR in range(0,N+1):
-        for jP in range(0,N+1):
-            if Cr* jR + Cp* jP > Mcb:
-                res += proba(iR,iP, jR,jP,Z,N)
-    aG.append(res)
+def aG(iR,iP, Z=Z, N=N):
+    tot = 0
+    count = 0
+    for jR in range(N + 1):
+        for jP in range(N + 1 - jR):
+            tot +=1
+            if Theta_fnc(jR,jP) == 1:
+                count+=1
+    return count/tot
 
-aG_dico = {i:aG[idx] for idx, i in enumerate(iV)}
+    #return(sum(comb(iR,jR)*comb(iP,jP)*comb(Z-iR-iP, N-jR-jP)*Theta_fnc(jR,jP)
+              #for jR in range(N + 1) for jP in range(N + 1 - jR))/comb(Z,N))
 
-nG = sum(aG_dico[i]*p_dico[i] for i in (iV))
+nG = 0
+for index, P_bar_i in enumerate(p):
+    iR,iP = iV[index]
+    nG += P_bar_i*aG(iR,iP)
+
+print(max(p))
 print(nG)
 
 
+#pkmax = {2,40, 75, 3, 2, 20)× 10−3
 
 
 ###### plot ######
