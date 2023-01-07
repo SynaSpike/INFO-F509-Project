@@ -6,6 +6,7 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 """
 import random
 import matplotlib.pyplot as plt
+from scipy.linalg import eig as eig
 
 from scipy.special import binom
 
@@ -438,10 +439,7 @@ class ClimateGame:
         grad_ir = np.zeros((self.poor + 1, self.rich + 1))  # rich on the x-axis
         grad_ip = np.zeros((self.poor + 1, self.rich+ 1))
 
-        print(i_conf)
         for idx, i in enumerate(i_conf):
-            print("idx : ", idx)
-            print("i: ", i)
 
             ir, ip = i
 
@@ -478,12 +476,19 @@ class ClimateGame:
             grad_ir[ip, ir] = Tr_gain - Tr_loss
             grad_ip[ip, ir] = Tp_gain - Tp_loss
 
+
+
         return W, grad_ir, grad_ip
 
 
 
 
-    def Plot(self, grad_iR, grad_iP ):
+    def Plot(self, grad_iR, grad_iP, p, i_conf):
+
+        P = np.zeros((self.poor + 1, self.rich + 1))  # rich on the x-axis
+        for idx, pi in enumerate(p):
+            iR, iP = i_conf[idx]
+            P[iP, iR] = pi
 
         fig, ax = plt.subplots(figsize=(3, 6))
 
@@ -499,7 +504,10 @@ class ClimateGame:
         ax.set_ylabel(r'poor cooperators, $i_P$')
         plt.axis('scaled')
         plt.tight_layout()
+        im = ax.imshow(P, origin='lower', cmap='coolwarm_r', alpha=0.5)
         plt.show()
+
+
 
     @staticmethod
 
@@ -538,7 +546,7 @@ if __name__ == '__main__':
 
     profiles = [player_p, player_r]
     fraction_endowment = 0.1
-    homophily = 0.
+    homophily = 1
     risk = 0.2
     M = 3  # Between 0 and group_size
 
@@ -581,7 +589,9 @@ if __name__ == '__main__':
 """
 a,b = Game.Enum_config(4,10)
 W, grad_iR, grad_iP = Game.Generate_W_GoS(a, b)
-Game.Plot(grad_iR, grad_iP)
+#Game.Plot(grad_iR, grad_iP, p, b)
+#eigs, leftv, rightv = eig(W, left=True, right=True)
+print(W)
 
 
 
