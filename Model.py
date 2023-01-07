@@ -15,12 +15,15 @@ import PGGStrategy
 import Player
 import math
 from scipy.linalg import eig as eig
-from alive_progress import alive_bar
+import matplotlib.pyplot as plt
+
 
 class ClimateGame:
 
-    def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, fraction_endowment: float, homophily: float,
-                 risk: float, M: float, rich_endowment: int, poor_endowment: int, mu: float, beta: float) -> None:
+    def __init__(self, popuplation_size: int, group_size: int, nb_rich: int, fraction_endowment: float,
+                 homophily: float,
+                 risk: float, M: float, rich_endowment: int, poor_endowment: int, mu: float, beta: float,
+                 rich_evolution: float, poor_evolution: float) -> None:
 
         self.population_size = popuplation_size  # Z
         self.group_size = group_size  # N
@@ -49,6 +52,9 @@ class ClimateGame:
         self.mu = mu
         self.beta = beta
 
+        self.rich_evolution = rich_evolution
+        self.poor_evolution = poor_evolution
+
         populations_configurations = []
         populations_configurations_index = {}
         index = 0
@@ -61,12 +67,14 @@ class ClimateGame:
                 index += 1
 
         self.W = np.zeros((index, index))
+        self.populations_configurations = populations_configurations
         self.populations_configurations_index = populations_configurations_index
-        self.populations_transitions_results = {} # moyen de calculer les gradients de selections a partir de ca si nécessaire
-        totalindex = index
+        self.populations_transitions_results = {}  # moyen de calculer les gradients de selections a partir de ca si nécessaire
+        self.totalindex = index
 
+    def play(self):
         print("Calculating population transitions...")
-        for index, pop_config in enumerate(populations_configurations):
+        for index, pop_config in enumerate(self.populations_configurations):
             self.calculate_population_transitions(pop_config)
 
         print("Calculating eigen values...")
@@ -77,16 +85,97 @@ class ClimateGame:
         L = np.real(eigs[domIdx])  # the dominant eigenvalue
         print("Getting the right-eigenvector...")
         p = np.real(rightv[:, domIdx])  # the right-eigenvector is the relative proportions in classes at ss
+        print("pmax =", max(p))
         print("Normalising the relative proportions...")
-        p = p / np.sum(p)  # normalise it
+
+        p = p / np.sum(p)
+        self.p = p  # normalise it
+        print("pmax_norm =", max(p))
 
         print("Calculating ng...")
         ng = 0
         for index, P_bar_i in enumerate(p):
-            ir, ip = populations_configurations[index]
+            ir, ip = self.populations_configurations[index]
             ng += P_bar_i * self.calculate_ag(ir, ip)
 
         print("ng:", ng)
+
+        # 1 == (kX = rich defect -> kY = rich coop)
+        # 2 == (kX = rich coop -> kY = rich defect)
+        # 3 == (kX = poor defect -> kY = poor coop)
+        # 4 == (kX = poor coop -> kY = poor defect)
+        # 5 == (no transi)
+
+        self.gradient_selection = [0 for i in range(self.totalindex)]
+        self.gradient_rich = [0 for i in range(self.totalindex)]
+        self.gradient_poor = [0 for i in range(self.totalindex)]
+
+        for pop_config, result in dict.items(self.populations_transitions_results):
+            ir, ip = pop_config
+            index_ = self.populations_configurations_index[pop_config]
+            self.gradient_selection[index_] = (result[0] - result[1], result[2] - result[3])
+            self.gradient_rich[index_] = result[0] - result[1]
+            self.gradient_poor[index_] = result[2] - result[3]
+
+    def GraphStationaryDistribution(self):
+        ZP = self.poor
+        ZR = self.rich
+        iV = self.populations_configurations
+        grad_iR = self.gradient_rich
+        grad_iP = self.gradient_poor
+
+        P = np.zeros((ZP + 1, ZR + 1))  # rich on the x-axis
+        for idx, pi in enumerate(self.p):
+            iR, iP = iV[idx]
+            P[iP, iR] = pi
+
+        # plot
+        # ---
+
+        fig, ax = plt.subplots(figsize=(3, 6))
+
+        iRV = list(range(ZR + 1))
+        iPV = list(range(ZP + 1))
+
+        im = ax.imshow(P, origin='lower', cmap='coolwarm_r', alpha=0.5)
+        # fig.colorbar(im)
+        ax.quiver(iRV, iPV, grad_iR, grad_iP)
+
+        # ax.quiver(iRV, iPV, np.zeros( (ZP+1, ZR+1) ), grad_iP)
+        # ax.quiver(iRV, iPV, grad_iR, np.zeros( (ZP+1, ZR+1) ))
+
+        # ax.quiver(iRV, iPV, stay_iR, np.zeros( (ZP+1, ZR+1) ))
+        # ax.quiver(iRV, iPV, np.zeros( (ZP+1, ZR+1) ), stay_iP)
+
+        # ax.quiver(iRV, iPV, go_iR, np.zeros( (ZP+1, ZR+1) ))
+        # ax.quiver(iRV, iPV, np.zeros( (ZP+1, ZR+1) ), go_iP)
+
+        ax.set_xlim((-1, ZR + 1))
+        ax.set_ylim((-1, ZP + 1))
+        # ax.set_aspect('scaled')
+        ax.set_xlabel(r'rich cooperators, $i_R$')
+        ax.set_ylabel(r'poor cooperators, $i_P$')
+        plt.axis('scaled')
+        plt.tight_layout()
+        plt.show()
+
+    # def GraphOnePopEvolution(self, evolving_population:str, ratio_cooperators:list):
+    #
+    #     x = []
+    #     other_pop_size = self.population_size - evolv_popu_size
+    #     for evolv_pop_coop in range(evolv_popu_size):
+    #         x.append(evolv_pop_coop/evolv_popu_size)
+    #
+    #     for ratio in ratio_cooperators:
+    #         other_pop_coop = other_pop_size * ratio
+    #         y = []
+    #         for evolv_pop_coop in range(evolv_popu_size):
+    #             y =
+
+
+        # y1 = [2, 4, 1]
+        # # plotting the line 1 points
+        # plt.plot(x, y1, label="line 1")
 
     def return_payoff(self, group_composition) -> None:
         """
@@ -102,7 +191,8 @@ class ClimateGame:
 
         game_payoffs = np.zeros(self.nb_strategies)
 
-        k = self.rich_contribution * group_composition[3] + self.poor_contribution * group_composition[2] - self.threshold
+        k = self.rich_contribution * group_composition[3] + self.poor_contribution * group_composition[
+            2] - self.threshold
 
         heav = k >= 0 and 1 or 0
 
@@ -132,7 +222,7 @@ class ClimateGame:
                 payoff = self.return_payoff([0, 0, jp, jr + 1])[3]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir - 1, jr) * comb(ip, jp) * comb(self.population_size - ir - ip,
-                                                                   self.group_size - 1 - jr - jp) * payoff
+                                                                self.group_size - 1 - jr - jp) * payoff
             sum_1 += sum_2
 
         RC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
@@ -146,7 +236,7 @@ class ClimateGame:
                 payoff = self.return_payoff([0, 0, jp, jr])[1]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
-                                                               self.group_size - 1 - jr - jp) * payoff
+                                                            self.group_size - 1 - jr - jp) * payoff
             sum_1 += sum_2
 
         RD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
@@ -160,7 +250,7 @@ class ClimateGame:
                 payoff = self.return_payoff([0, 0, jp + 1, jr])[2]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir, jr) * comb(ip - 1, jp) * comb(self.population_size - ir - ip,
-                                                                   self.group_size - 1 - jr - jp) * payoff
+                                                                self.group_size - 1 - jr - jp) * payoff
             sum_1 += sum_2
 
         PC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
@@ -174,7 +264,7 @@ class ClimateGame:
                 payoff = self.return_payoff([0, 0, jp, jr])[0]
                 # Do not care about the nbr of defector (does not affect payoff)
                 sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
-                                                               self.group_size - 1 - jr - jp) * payoff
+                                                            self.group_size - 1 - jr - jp) * payoff
             sum_1 += sum_2
 
         PD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
@@ -205,11 +295,11 @@ class ClimateGame:
         fitness = self.calculate_fitness(ir, ip)
 
         population_transitions = [
-            (1, -1, 0, 0),
-            (-1, 1, 0, 0),
-            (0, 0, 1, -1),
-            (0, 0, -1, 1),
-            (0, 0, 0, 0)
+            (1, -1, 0, 0),  # kX = rich defect -> kY = rich coop
+            (-1, 1, 0, 0),  # kX = rich coop -> kY = rich defect
+            (0, 0, 1, -1),  # kX = poor defect -> kY = poor coop
+            (0, 0, -1, 1),  # kX = poor coop -> kY = poor defect
+            (0, 0, 0, 0)  # no transi
         ]
 
         transitions_results = {}
@@ -226,30 +316,42 @@ class ClimateGame:
                     # print("")
                     # print("Transition kX = rich defect -> kY = rich coop")
                     # k = rich, l = poor, X = defect, Y = coop
-                    result = self.transition_probability(Zk=self.rich, Zl=self.poor, ikX=self.rich-ir, ikY=ir, ilY=ip, fkX=fitness[1], fkY=fitness[3], flY=fitness[2])
+                    result = self.rich_evolution * self.transition_probability(Zk=self.rich, Zl=self.poor,
+                                                                               ikX=self.rich - ir, ikY=ir, ilY=ip,
+                                                                               fkX=fitness[1], fkY=fitness[3],
+                                                                               flY=fitness[2])
 
                 elif transition == (-1, 1, 0, 0):
                     # print("Transition kX = rich coop -> kY = rich defect")
                     # k = rich, l = poor, X = coop, Y = defect
-                    result = self.transition_probability(Zk=self.rich, Zl=self.poor, ikX=ir, ikY=self.rich-ir, ilY=self.poor-ip, fkX=fitness[3], fkY=fitness[1], flY=fitness[0])
+                    result = self.rich_evolution * self.transition_probability(Zk=self.rich, Zl=self.poor, ikX=ir,
+                                                                               ikY=self.rich - ir, ilY=self.poor - ip,
+                                                                               fkX=fitness[3], fkY=fitness[1],
+                                                                               flY=fitness[0])
 
                 elif transition == (0, 0, 1, -1):
                     # print("Transition kX = poor defect -> kY = poor coop")
                     # k = pauvre, l = riche, X = defect, Y = coop
-                    result = self.transition_probability(Zk=self.poor, Zl=self.rich, ikX=self.poor-ip, ikY=ip, ilY=ir, fkX=fitness[0], fkY=fitness[2], flY=fitness[3])
+                    result = self.poor_evolution * self.transition_probability(Zk=self.poor, Zl=self.rich,
+                                                                               ikX=self.poor - ip, ikY=ip, ilY=ir,
+                                                                               fkX=fitness[0], fkY=fitness[2],
+                                                                               flY=fitness[3])
 
                 elif transition == (0, 0, -1, 1):
                     # print("Transition kX = poor coop -> kY = poor defect")
                     # k = pauvre, l = riche, X = coop, Y = defect
-                    result = self.transition_probability(Zk=self.poor, Zl=self.rich, ikX=ip, ikY=self.poor-ip, ilY=self.rich-ir, fkX=fitness[2], fkY=fitness[0], flY=fitness[1])
+                    result = self.poor_evolution * self.transition_probability(Zk=self.poor, Zl=self.rich, ikX=ip,
+                                                                               ikY=self.poor - ip, ilY=self.rich - ir,
+                                                                               fkX=fitness[2], fkY=fitness[0],
+                                                                               flY=fitness[1])
 
                 elif transition == (0, 0, 0, 0):
                     # print("pas de transition")
-                    result = 1-sum(transitions_results.values())
+                    result = 1 - sum(transitions_results.values())
 
                 self.W[transition_index, index] = result
 
-            transitions_results[transition] = result
+            transitions_results[len(transitions_results)] = result
 
         self.populations_transitions_results[(ir, ip)] = transitions_results
 
@@ -276,23 +378,30 @@ class ClimateGame:
 
 
 if __name__ == '__main__':
-    population_size = 40
-    nb_rich = 10
+    population_size = 200
+    nb_rich = 100
     group_size = 6
     rich_endowment = 1.7
     poor_endowment = 0.3
 
     fraction_endowment = 0.1
-    homophily = 0.7
+    homophily = 0
     risk = 0.2
     M = 3  # Between 0 and group_size
 
-    mu = 1/population_size
+    mu = 1 / population_size
     beta = 5
+
+    rich_evolution = 1
+    poor_evolution = 1
 
     Game = ClimateGame(popuplation_size=population_size, group_size=group_size, nb_rich=nb_rich,
                        fraction_endowment=fraction_endowment, homophily=homophily, risk=risk, M=M,
-                       rich_endowment=rich_endowment, poor_endowment=poor_endowment, mu=mu, beta=beta)
+                       rich_endowment=rich_endowment, poor_endowment=poor_endowment, mu=mu, beta=beta,
+                       rich_evolution=rich_evolution, poor_evolution=poor_evolution)
+
+    Game.play()
+    Game.GraphStationaryDistribution()
 
     # print(len(Game.sample(0.8)[32]))
 
@@ -305,9 +414,9 @@ if __name__ == '__main__':
 
     # print(Game.payoffs_[:,32])
 
-    # print(Game.calculate_fitness(4, 4))
+    # print("fitness:", Game.calculate_fitness(20, 80))
     # [0.5271957179851917, 2.108782871940767, 0.49202061373114003, 2.0751206672259306]
 
     # print(Game.calculate_payoffs())
 
-    #print("Results[PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]:", Game.transition_probabilities(ir=20, ip=60))
+    # print("Results[PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]:", Game.transition_probabilities(ir=20, ip=60))
