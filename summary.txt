@@ -1,6 +1,8 @@
 A threshold Public Goods Game (PGG) in which success requires overall cooperative collective action, and decisions
 must be made knowing that failure to cooperate implies a risk of overall collapse
 
+This is a first summary text from a first read of the article
+
 Population (Z):
  -> Zr = rich individuals
  -> Zp = poor individuals
@@ -62,6 +64,8 @@ other population l (that is, l = P if k = R, and l = R if k = P)
 
 There is also a gradient of selection ∇i
 
+Markov process -> eigen search problem -> ng
+
 Graphs:
  -> Average group achievement (ηG) as a function of risk (r)
                                     _
@@ -96,3 +100,5 @@ Graphs:
     β = 5.0; pk
     pkmax = {pAmax, ..., pCmax} = {76,4,2} * 10e-3
     ∇kmax = {∇Amax, ..., ∇Cmax} = {3,3,4} * 10e-2
+
+ -> others in SM

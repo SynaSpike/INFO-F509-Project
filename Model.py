@@ -6,19 +6,12 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 """
 import random
 from typing import Union, Any
-
 import matplotlib.colors
 from scipy.special import comb as comb
-
-import egttools
 import numpy as np
-import PGGStrategy
-import Player
 import math
 from scipy.linalg import eig as eig
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyArrowPatch
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 class ClimateGame:
@@ -51,7 +44,7 @@ class ClimateGame:
         self.rich_evolution = 1
         self.poor_evolution = 1
 
-        self.wealth_inequality = True
+        self.obstinate_players_ratio = False
 
     def update_endowments(self, rich_endowment):
         self.rich_endowment = rich_endowment
@@ -94,65 +87,63 @@ class ClimateGame:
         print("ng:", ng)
 
     def play(self):
-        if self.wealth_inequality:
-            populations_configurations = []
-            populations_configurations_index = {}
-            index = 0
+        populations_configurations = []
+        populations_configurations_index = {}
+        index = 0
+        print("Setting up all possible population configuration...")
+        for ip in range(self.poor + 1):
+            for ir in range(self.rich + 1):
+                if self.obstinate_players_ratio:
+                    if ir < self.obstinate_players["RC"]:
+                        continue
+                    if self.rich - ir < self.obstinate_players["RD"]:
+                        continue
+                    if ip < self.obstinate_players["PC"]:
+                        continue
+                    if self.poor - ip < self.obstinate_players["PD"]:
+                        continue
+                populations_configurations.append((ir, ip))
+                populations_configurations_index[(ir, ip)] = index
+                index += 1
 
-            print("Setting up all possible population configuration...")
-            for ip in range(self.poor + 1):
-                for ir in range(self.rich + 1):
-                    populations_configurations.append((ir, ip))
-                    populations_configurations_index[(ir, ip)] = index
-                    index += 1
+        # if self.obstinate_players_ratio:
+        #     self.rich = self.rich - (self.obstinate_players["RC"] + self.obstinate_players["RD"])
+        # if self.obstinate_players_ratio:
+        #     self.poor = self.poor - (self.obstinate_players["PC"] + self.obstinate_players["PD"])
 
-            self.W = np.zeros((index, index))
-            self.populations_configurations = populations_configurations
-            self.populations_configurations_index = populations_configurations_index
-            self.populations_transitions_results = {}  # moyen de calculer les gradients de selections a partir de ca si nécessaire
-            self.totalindex = index
+        self.W = np.zeros((index, index))
+        self.populations_configurations = populations_configurations
+        self.populations_configurations_index = populations_configurations_index
+        self.populations_transitions_results = {}  # moyen de calculer les gradients de selections a partir de ca si nécessaire
+        self.totalindex = index
 
-            print("Calculating population transitions...")
-            for index, pop_config in enumerate(self.populations_configurations):
-                self.calculate_population_transitions(pop_config)
+        print("Calculating population transitions...")
+        for index, pop_config in enumerate(self.populations_configurations):
+            self.calculate_population_transitions(pop_config)
 
-            self.get_p()
-            self.get_ng()
+        self.get_p()
+        self.get_ng()
 
-            # 1 == (kX = rich defect -> kY = rich coop)
-            # 2 == (kX = rich coop -> kY = rich defect)
-            # 3 == (kX = poor defect -> kY = poor coop)
-            # 4 == (kX = poor coop -> kY = poor defect)
-            # 5 == (no transi)
+        # 1 == (kX = rich defect -> kY = rich coop)
+        # 2 == (kX = rich coop -> kY = rich defect)
+        # 3 == (kX = poor defect -> kY = poor coop)
+        # 4 == (kX = poor coop -> kY = poor defect)
+        # 5 == (no transi)
 
-            self.gradient_selection = [0 for i in range(self.totalindex)]
-            self.gradient_rich = [0 for i in range(self.totalindex)]
-            self.gradient_poor = [0 for i in range(self.totalindex)]
+        self.gradient_selection = [0 for i in range(self.totalindex)]
+        self.gradient_rich = [0 for i in range(self.totalindex)]
+        self.gradient_poor = [0 for i in range(self.totalindex)]
 
-            for pop_config, result in dict.items(self.populations_transitions_results):
-                ir, ip = pop_config
-                index_ = self.populations_configurations_index[pop_config]
-                self.gradient_selection[index_] = (result[0] - result[1], result[2] - result[3])
-                self.gradient_rich[index_] = result[0] - result[1]
-                self.gradient_poor[index_] = result[2] - result[3]
-        else:
-            self.populations_configurations = [i for i in range(self.population_size + 1)]
-            nb_config = len(self.populations_configurations)
-            self.W = np.zeros((nb_config, nb_config))
-            self.populations_transitions_results = {}
-
-            for pop_config in self.populations_configurations:
-                self.calculate_population_transitions(pop_config)
-
-            self.get_p()
-            self.get_ng()
-
-            self.gradient_selection = [0 for i in range(nb_config)]
-
-            for C_pop, result in dict.items(self.populations_transitions_results):
-                self.gradient_selection[C_pop] = result[0] - result[1]
+        for pop_config, result in dict.items(self.populations_transitions_results):
+            ir, ip = pop_config
+            index_ = self.populations_configurations_index[pop_config]
+            self.gradient_selection[index_] = (result[0] - result[1], result[2] - result[3])
+            self.gradient_rich[index_] = result[0] - result[1]
+            self.gradient_poor[index_] = result[2] - result[3]
 
     def GraphStationaryDistribution(self):
+
+        self.play()
 
         ZP = self.poor
         ZR = self.rich
@@ -229,6 +220,77 @@ class ClimateGame:
         plt.tight_layout()
         plt.show()
 
+    def GraphStationaryDistribution_obstinate(self, obstinate_players_ratio:list):
+
+        self.obstinate_players_ratio = obstinate_players_ratio
+
+        self.obstinate_players = {
+            "RC":int(self.rich * obstinate_players_ratio[0]), #obstinate rich coop
+            "RD":int(self.rich * obstinate_players_ratio[1]), #obstinate rich defect
+            "PC":int(self.poor * obstinate_players_ratio[2]), #obstinate poor coop
+            "PD":int(self.poor * obstinate_players_ratio[3]), #obstinate poor defect
+        }
+
+        ZP = self.poor
+        ZR = self.rich
+
+        self.play()
+
+        iV = self.populations_configurations
+        grad_iR = self.gradient_rich
+        grad_iP = self.gradient_poor
+
+        P = np.zeros((ZP + 1, ZR + 1))  # rich on the x-axis
+        for idx, pi in enumerate(self.p):
+            iR, iP = iV[idx]
+            P[iP, iR] = pi
+
+        # plot
+        # ---
+
+        fig, ax = plt.subplots(figsize=(3, 6))
+
+        x=[]
+        for ip in range(ZP + 1):
+            for ir in range(ZR + 1):
+                x.append(ir)
+        y=[]
+        for ip in range(ZP + 1):
+            for ir in range(ZR + 1):
+                y.append(ip)
+
+        customcmap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#DCDCDC", "black"])
+        plt.scatter(x, y, c=P, alpha=0.85, cmap=customcmap, edgecolors="#A9A9A9")
+
+        iRV = list(range(ZR + 1))
+        iPV = list(range(ZP + 1))
+
+        grad_ir_array = np.zeros((ZP + 1, ZR + 1))
+        grad_ip_array = np.zeros((ZP + 1, ZR + 1))
+        colors = np.zeros((ZP + 1, ZR + 1))
+
+        for index, gradient in enumerate(grad_iR):
+            ir, ip = self.populations_configurations[index]
+            grad_ir_array[ip][ir] = gradient
+            colors[ip][ir] += abs(gradient)
+
+        for index, gradient in enumerate(grad_iP):
+            ir, ip = self.populations_configurations[index]
+            grad_ip_array[ip][ir] = gradient
+            colors[ip][ir] += abs(gradient)
+
+        customcolormap2 = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#610484", "#5a2293",
+        "#5340a1", "#366695", "#128f81", "#22a967", "#67b448", "#9fae31", "#b17630", "#c33d30"])
+        ax.streamplot(iRV, iPV, grad_ir_array, grad_ip_array, color=colors, density=.5, cmap=customcolormap2)
+
+        ax.set_xlim((-1, ZR + 1))
+        ax.set_ylim((-1, ZP + 1))
+        ax.set_xlabel(r'rich cooperators, $i_R$')
+        ax.set_ylabel(r'poor cooperators, $i_P$')
+        plt.axis('scaled')
+        plt.tight_layout()
+        plt.show()
+
     def GraphOnePopEvolution(self, evolving_population:str, ratio_cooperators:list, rich_endowments:list):
 
         evolv_pop_size = evolving_population == "R" and self.rich or self.poor
@@ -240,13 +302,15 @@ class ClimateGame:
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-        colors = ["orange", "blue", "green", "red", "purple"]
+        colors = ["blue", "orange", "green", "red", "purple"]
 
         x = []
         other_pop_size = self.population_size - evolv_pop_size
 
         for evolv_pop_coop in range(evolv_pop_size):
             x.append(evolv_pop_coop/evolv_pop_size)
+
+        plt.plot(x, [0 for i in range(evolv_pop_size)], '-', color="black", linewidth=0.5)
 
         for rich_endowment in rich_endowments:
             self.update_endowments(rich_endowment=rich_endowment)
@@ -265,12 +329,12 @@ class ClimateGame:
 
                 if rich_endowment == rich_endowments[0]:
                     labeltext = str(int(ratio * 100))+"%"
-                    plt.plot(x, y, '-', label=labeltext, color=colors[index])
+                    plt.plot(x, y, '--', label=labeltext, color=colors[index])
                 else:
-                    plt.plot(x, y, '--', color=colors[index])
+                    plt.plot(x, y, '-', color=colors[index])
 
-        plt.plot([], [], '-', label="$b_R$ > $b_P$", color="black")
-        plt.plot([], [], '--', label="$b_R$ >> $b_P$", color="black")
+        plt.plot([], [], '--', label="$b_R$ > $b_P$", color="black")
+        plt.plot([], [], '-', label="$b_R$ >> $b_P$", color="black")
         plt.legend(title="fraction of $C_P$", loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
         popu = evolving_population == "R" and "rich" or "poor"
         ax.set_xlabel(r'fraction of '+popu+' cooperators, $i_'+evolving_population+'/Z_'+evolving_population+'$')
@@ -282,79 +346,63 @@ class ClimateGame:
         self.update_endowments(rich_endowment=1)
         self.wealth_inequality = True
 
+        colors = ["black", "red"]
+
         x = []
         for i in range(self.population_size + 1):
             x.append(i/self.population_size)
 
-        if self.wealth_inequality:
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        ax2.plot(x, [0 for i in x], '-', color="black", linewidth=0.5)
 
-            for threshold_uncertainty in threshold_uncertainties:
-                self.threshold_uncertainty = threshold_uncertainty
-                self.play()
+        for color_index, threshold_uncertainty in enumerate(threshold_uncertainties):
+            self.threshold_uncertainty = threshold_uncertainty
+            self.play()
 
-                stat_dist = [[] for i in range(self.population_size + 1)]
-                grad_sel = [[] for i in range(self.population_size + 1)]
+            stat_dist = [[] for i in range(self.population_size + 1)]
+            grad_sel = [[] for i in range(self.population_size + 1)]
 
-                for index, config in enumerate(self.populations_configurations):
-                    ir, ip = config
-                    nbr_coop = ir+ip
-                    stat_dist[nbr_coop].append(self.p[index])
-                    grad_sel[nbr_coop].append(self.gradient_selection[index])
+            for index, config in enumerate(self.populations_configurations):
+                ir, ip = config
+                nbr_coop = ir+ip
+                stat_dist[nbr_coop].append(self.p[index])
+                grad_sel[nbr_coop].append(self.gradient_selection[index])
 
-                stat_dist_avg = [0 for i in range(self.population_size + 1)]
-                grad_sel_avg = [0 for i in range(self.population_size + 1)]
+            stat_dist_avg = [0 for i in range(self.population_size + 1)]
+            grad_sel_avg = [0 for i in range(self.population_size + 1)]
 
-                for nbr_coop, dist in enumerate(stat_dist):
-                    print("stationary distrib",nbr_coop, max(dist))
-                    stat_dist_avg[nbr_coop] = max(dist)
+            for nbr_coop, dist in enumerate(stat_dist):
+                stat_dist_avg[nbr_coop] = max(dist)
 
-                for nbr_coop, gradients in enumerate(grad_sel):
-                    total = 0
-                    maxvalue = 0
-                    minvalue = 0
-                    for gradient in gradients:
-                        value = (gradient[0]+gradient[1])/2
-                        total += value
-                        if value > maxvalue:
-                            maxvalue = value
-                        if value < minvalue:
-                            minvalue = value
-                    print("gradient of selection" ,nbr_coop, maxvalue, minvalue)
-                    grad_sel_avg[nbr_coop] = total / len(gradients)
+            for nbr_coop, gradients in enumerate(grad_sel):
+                total = 0
 
-                labeltext1 = "ss, delta = "+str(threshold_uncertainty)
-                plt.plot(x, stat_dist_avg, '-', label=labeltext1)
-                labeltext2 = "grad, delta = "+str(threshold_uncertainty)
-                plt.plot(x, grad_sel_avg, '--', label=labeltext2)
+                for gradient in gradients:
+                    total += (gradient[0]+gradient[1])/2
 
-            plt.legend(loc='best')
-            plt.show()
+                grad_sel_avg[nbr_coop] = total / len(gradients)
 
-        else:
-            self.endowment = 1
-            self.b_bar = 1
-            self.contribution = self.fraction_endowment * self.endowment
-            self.threshold = self.M * self.fraction_endowment * self.b_bar
+            labeltext1 = "δ = "+str(threshold_uncertainty)
+            ax1.plot(x, stat_dist_avg, color_index == 0 and '-' or "--", label=labeltext1, color=colors[color_index])
+            labeltext2 = "δ = "+str(threshold_uncertainty)
+            ax2.plot(x, grad_sel_avg, color_index == 0 and '-' or "--", label=labeltext2, color=colors[color_index])
 
-            for threshold_uncertainty in threshold_uncertainties:
-                self.threshold_uncertainty = threshold_uncertainty
-                self.play()
-
-                labeltext1 = "ss, delta = " + str(threshold_uncertainty)
-                plt.plot(x, self.p, '-', label=labeltext1)
-                labeltext2 = "grad, delta = " + str(threshold_uncertainty)
-                plt.plot(x, self.gradient_selection, '--', label=labeltext2)
-
-            plt.legend(loc='best')
-            plt.show()
+        ax1.legend(loc='upper right', frameon=False)
+        ax2.legend(loc='upper right', frameon=False)
+        plt.show()
 
     def Graph_ng_risk(self, homophilies, wealth_inequalites, threshold_uncertainties, Ns, Ms):
         population_rich = self.rich
         rich_endowment = self.rich_endowment
 
+        colors = ["blue", "red", "grey"]
+
+        fig = plt.figure()
+        ax = plt.subplot(111)
+
         x = []
         for i in range(0, 101, 5):
-            x.append(i)
+            x.append(i/100)
 
         for i in range(len(homophilies)):
             self.homophily = homophilies[i]
@@ -382,10 +430,14 @@ class ClimateGame:
 
                 y.append(self.ng)
 
-            labeltext = "h="+str(self.homophily)+" ;δ="+str(self.threshold_uncertainty)+"; w_inequality:"+str(wealth_inequality)
-            plt.plot(x, y, '-', label=labeltext)
+            #labeltext = "h="+str(self.homophily)+" ;δ="+str(self.threshold_uncertainty)+"; w_inequality:"+str(wealth_inequality)
+            plt.plot(x, y, '-', color=colors[i])
 
-        plt.legend(loc='best')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.0])
+        #plt.legend(loc='best')
+        ax.set_xlabel(r'risk, $r$')
+        ax.set_ylabel(r'group achievement, $η_G$')
         plt.show()
 
     def return_payoff(self, group_composition) -> None:
@@ -399,38 +451,25 @@ class ClimateGame:
         game_payoffs: numpy.ndarray
             container for the payoffs of each strategy
         """
-        if self.wealth_inequality:
-            game_payoffs = np.zeros(self.nb_strategies)
+        jp = group_composition[2]
+        jr = group_composition[3]
 
-            threshold_value = random.uniform(self.threshold - self.threshold_uncertainty, self.threshold + self.threshold_uncertainty)
+        game_payoffs = np.zeros(self.nb_strategies)
 
-            k = self.rich_contribution * group_composition[3] + self.poor_contribution * group_composition[
-                2] - threshold_value
+        threshold_value = random.uniform(self.threshold - self.threshold_uncertainty, self.threshold + self.threshold_uncertainty)
 
-            heav = k >= 0 and 1 or 0
+        k = self.rich_contribution * group_composition[3] + self.poor_contribution * group_composition[
+            2] - threshold_value
 
-            game_payoffs[0] = self.poor_endowment * (heav + (1 - self.risk) * (1 - heav))
-            game_payoffs[1] = self.rich_endowment * (heav + (1 - self.risk) * (1 - heav))
+        heav = k >= 0 and 1 or 0
 
-            game_payoffs[2] = game_payoffs[0] - self.poor_contribution
-            game_payoffs[3] = game_payoffs[1] - self.rich_contribution
+        game_payoffs[0] = self.poor_endowment * (heav + (1 - self.risk) * (1 - heav))
+        game_payoffs[1] = self.rich_endowment * (heav + (1 - self.risk) * (1 - heav))
 
-            return game_payoffs
-        else:
-            #group_composition[0]=coop, group_composition[1]=defect
-            game_payoffs = np.zeros(2)
-            threshold_value = random.uniform(self.threshold - self.threshold_uncertainty, self.threshold + self.threshold_uncertainty)
+        game_payoffs[2] = game_payoffs[0] - self.poor_contribution
+        game_payoffs[3] = game_payoffs[1] - self.rich_contribution
 
-            k = group_composition[0] * self.contribution - threshold_value
-            heav = k >= 0 and 1 or 0
-
-            defector_payoff = self.endowment * (heav + (1 - self.risk) * (1 - heav))
-            cooperator_payoff = defector_payoff - self.contribution
-
-            game_payoffs[0] = cooperator_payoff
-            game_payoffs[1] = defector_payoff
-
-            return game_payoffs
+        return game_payoffs
 
     def calculate_fitness(self, ir, ip) -> float:
         """
@@ -441,250 +480,178 @@ class ClimateGame:
         :param: ip nbr of poor
 
         """
-        if self.wealth_inequality:
-            # rich cooperators
-            sum_1 = 0
+        # rich cooperators
+        sum_1 = 0
 
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size - jr):
-                    payoff = self.return_payoff([0, 0, jp, jr + 1])[3]
-                    # Do not care about the nbr of defector (does not affect payoff)
-                    sum_2 += comb(ir - 1, jr) * comb(ip, jp) * comb(self.population_size - ir - ip,
-                                                                    self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
-
-            RC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
-
-            # rich defectors
-            sum_1 = 0
-
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size - jr):
-                    payoff = self.return_payoff([0, 0, jp, jr])[1]
-                    # Do not care about the nbr of defector (does not affect payoff)
-                    sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size - jr):
+                payoff = self.return_payoff([0, 0, jp, jr + 1])[3]
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += comb(ir - 1, jr) * comb(ip, jp) * comb(self.population_size - ir - ip,
                                                                 self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
+            sum_1 += sum_2
 
-            RD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+        RC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
-            # poor cooperators
-            sum_1 = 0
+        # rich defectors
+        sum_1 = 0
 
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size - jr):
-                    payoff = self.return_payoff([0, 0, jp + 1, jr])[2]
-                    # Do not care about the nbr of defector (does not affect payoff)
-                    sum_2 += comb(ir, jr) * comb(ip - 1, jp) * comb(self.population_size - ir - ip,
-                                                                    self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size - jr):
+                payoff = self.return_payoff([0, 0, jp, jr])[1]
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
+                                                            self.group_size - 1 - jr - jp) * payoff
+            sum_1 += sum_2
 
-            PC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+        RD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
-            # poor defectors
-            sum_1 = 0
+        # poor cooperators
+        sum_1 = 0
 
-            for jr in range(self.group_size):
-                sum_2 = 0
-                for jp in range(self.group_size - jr):
-                    payoff = self.return_payoff([0, 0, jp, jr])[0]
-                    # Do not care about the nbr of defector (does not affect payoff)
-                    sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size - jr):
+                payoff = self.return_payoff([0, 0, jp + 1, jr])[2]
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += comb(ir, jr) * comb(ip - 1, jp) * comb(self.population_size - ir - ip,
                                                                 self.group_size - 1 - jr - jp) * payoff
-                sum_1 += sum_2
+            sum_1 += sum_2
 
-            PD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
+        PC = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
-            return [PD, RD, PC, RC]
-        else:
-            # cooperate
-            C_pop = ir
-            total = 0
+        # poor defectors
+        sum_1 = 0
 
-            for C_group in range(self.group_size):
-                payoff = self.return_payoff([C_group + 1, 0])[0]
-                total += comb(C_pop - 1, C_group) * comb(self.population_size - C_pop, self.group_size - 1 - C_group) * payoff
+        for jr in range(self.group_size):
+            sum_2 = 0
+            for jp in range(self.group_size - jr):
+                payoff = self.return_payoff([0, 0, jp, jr])[0]
+                # Do not care about the nbr of defector (does not affect payoff)
+                sum_2 += comb(ir, jr) * comb(ip, jp) * comb(self.population_size - 1 - ir - ip,
+                                                            self.group_size - 1 - jr - jp) * payoff
+            sum_1 += sum_2
 
-            cooperator_fitness = comb(self.population_size - 1, self.group_size - 1) ** (-1) * total
+        PD = comb(self.population_size - 1, self.group_size - 1) ** (-1) * sum_1
 
-            # defector
-
-            total = 0
-
-            for C_group in range(self.group_size):
-                payoff = self.return_payoff([C_group, 0])[1]
-                total += comb(C_pop, C_group) * comb(self.population_size - 1 - C_pop, self.group_size - 1 - C_group) * payoff
-
-            defector_fitness = comb(self.population_size - 1, self.group_size - 1) ** (-1) * total
-
-            return[cooperator_fitness, defector_fitness]
+        return [PD, RD, PC, RC]
 
     def transition_probability(self, Zk, Zl, ikX, ikY, ilY, fkX, fkY, flY):
-        if self.wealth_inequality:
-            # an individual with strategy X∈{C,D} in the subpopulation k∈{R,P} changes to a different strategy
-            # Y∈{C,D}, both from the same subpopulation k and from the other population l
-            # l = P if k = R, and l = R if k = P
-            mu = self.mu
-            beta = self.beta
-            Z = self.population_size
-            h = self.homophily
-            # print("ikX:", ikX, "ikY:", ikY, "ilY:", ilY, "Zk:", Zk, "Zl:", Zl, "fkX:", fkX, "fkY:", fkY, "flY:", flY)
+        # an individual with strategy X∈{C,D} in the subpopulation k∈{R,P} changes to a different strategy
+        # Y∈{C,D}, both from the same subpopulation k and from the other population l
+        # l = P if k = R, and l = R if k = P
+        mu = self.mu
+        beta = self.beta
+        Z = self.population_size
+        h = self.homophily
+        # print("ikX:", ikX, "ikY:", ikY, "ilY:", ilY, "Zk:", Zk, "Zl:", Zl, "fkX:", fkX, "fkY:", fkY, "flY:", flY)
 
-            fermi_1 = (1 + math.e ** (beta * (fkX - fkY))) ** -1
-            fermi_2 = (1 + math.e ** (beta * (fkX - flY))) ** -1
-            param1 = ikY / (Zk - 1 + (1 - h) * Zl)
-            param2 = ((1 - h) * ilY) / (Zk - 1 + (1 - h) * Zl)
-            # print(fermi_1, fermi_2, param1, param2)
+        fermi_1 = (1 + math.e ** (beta * (fkX - fkY))) ** -1
+        fermi_2 = (1 + math.e ** (beta * (fkX - flY))) ** -1
+        param1 = ikY / (Zk - 1 + (1 - h) * Zl)
+        param2 = ((1 - h) * ilY) / (Zk - 1 + (1 - h) * Zl)
+        # print(fermi_1, fermi_2, param1, param2)
 
-            return (ikX / Z) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
-        else:
-            mu = self.mu
-            beta = self.beta
-            Z = self.population_size
-
-            fermi = (1 + math.e ** (beta * (fkX - fkY))) ** -1
-
-            return (ikX / Z) * ((1 - mu) * fermi + mu)
+        return (ikX / Z) * ((1 - mu) * (param1 * fermi_1 + param2 * fermi_2) + mu)
 
     def calculate_population_transitions(self, pop_config):
-        if self.wealth_inequality:
-            ir, ip = pop_config
-            index = self.populations_configurations_index[(ir, ip)]
-            fitness = self.calculate_fitness(ir, ip)
+        ir, ip = pop_config
+        index = self.populations_configurations_index[(ir, ip)]
+        fitness = self.calculate_fitness(ir, ip)
 
-            population_transitions = [
-                (1, -1, 0, 0),  # kX = rich defect -> kY = rich coop
-                (-1, 1, 0, 0),  # kX = rich coop -> kY = rich defect
-                (0, 0, 1, -1),  # kX = poor defect -> kY = poor coop
-                (0, 0, -1, 1),  # kX = poor coop -> kY = poor defect
-                (0, 0, 0, 0)  # no transi
-            ]
+        population_transitions = [
+            (1, -1, 0, 0),  # kX = rich defect -> kY = rich coop
+            (-1, 1, 0, 0),  # kX = rich coop -> kY = rich defect
+            (0, 0, 1, -1),  # kX = poor defect -> kY = poor coop
+            (0, 0, -1, 1),  # kX = poor coop -> kY = poor defect
+            (0, 0, 0, 0)  # no transi
+        ]
 
-            transitions_results = {}
+        transitions_results = {}
 
-            for transition in population_transitions:
-                ir_prime = pop_config[0] + transition[0]
-                ip_prime = pop_config[1] + transition[2]
-                result = 0
+        for transition in population_transitions:
+            ir_prime = pop_config[0] + transition[0]
+            ip_prime = pop_config[1] + transition[2]
+            result = 0
 
-                if 0 <= ir_prime <= self.rich and 0 <= ip_prime <= self.poor:
-                    transition_index = self.populations_configurations_index[(ir_prime, ip_prime)]
+            if 0 <= ir_prime <= self.rich and 0 <= ip_prime <= self.poor:
+                if self.obstinate_players_ratio:
+                    if ir_prime < self.obstinate_players["RC"]:
+                        transitions_results[len(transitions_results)] = 0
+                        continue
+                    if self.rich - ir_prime < self.obstinate_players["RD"]:
+                        transitions_results[len(transitions_results)] = 0
+                        continue
+                    if ip_prime < self.obstinate_players["PC"]:
+                        transitions_results[len(transitions_results)] = 0
+                        continue
+                    if self.poor - ip_prime < self.obstinate_players["PD"]:
+                        transitions_results[len(transitions_results)] = 0
+                        continue
 
-                    if transition == (1, -1, 0, 0):
-                        # print("")
-                        # print("Transition kX = rich defect -> kY = rich coop")
-                        # k = rich, l = poor, X = defect, Y = coop
-                        result = self.rich_evolution * self.transition_probability(Zk=self.rich, Zl=self.poor,
-                                                                                   ikX=self.rich - ir, ikY=ir, ilY=ip,
-                                                                                   fkX=fitness[1], fkY=fitness[3],
-                                                                                   flY=fitness[2])
+                transition_index = self.populations_configurations_index[(ir_prime, ip_prime)]
 
-                    elif transition == (-1, 1, 0, 0):
-                        # print("Transition kX = rich coop -> kY = rich defect")
-                        # k = rich, l = poor, X = coop, Y = defect
-                        result = self.rich_evolution * self.transition_probability(Zk=self.rich, Zl=self.poor, ikX=ir,
-                                                                                   ikY=self.rich - ir, ilY=self.poor - ip,
-                                                                                   fkX=fitness[3], fkY=fitness[1],
-                                                                                   flY=fitness[0])
+                Zr = self.rich
+                Zp = self.poor
 
-                    elif transition == (0, 0, 1, -1):
-                        # print("Transition kX = poor defect -> kY = poor coop")
-                        # k = pauvre, l = riche, X = defect, Y = coop
-                        result = self.poor_evolution * self.transition_probability(Zk=self.poor, Zl=self.rich,
-                                                                                   ikX=self.poor - ip, ikY=ip, ilY=ir,
-                                                                                   fkX=fitness[0], fkY=fitness[2],
-                                                                                   flY=fitness[3])
+                if transition == (1, -1, 0, 0):
+                    # print("")
+                    # print("Transition kX = rich defect -> kY = rich coop")
+                    # k = rich, l = poor, X = defect, Y = coop
+                    result = self.rich_evolution * self.transition_probability(Zk=Zr, Zl=Zp,
+                                                                               ikX=max(Zr - ir, 0), ikY=ir, ilY=ip,
+                                                                               fkX=fitness[1], fkY=fitness[3],
+                                                                               flY=fitness[2])
 
-                    elif transition == (0, 0, -1, 1):
-                        # print("Transition kX = poor coop -> kY = poor defect")
-                        # k = pauvre, l = riche, X = coop, Y = defect
-                        result = self.poor_evolution * self.transition_probability(Zk=self.poor, Zl=self.rich, ikX=ip,
-                                                                                   ikY=self.poor - ip, ilY=self.rich - ir,
-                                                                                   fkX=fitness[2], fkY=fitness[0],
-                                                                                   flY=fitness[1])
+                elif transition == (-1, 1, 0, 0):
+                    # print("Transition kX = rich coop -> kY = rich defect")
+                    # k = rich, l = poor, X = coop, Y = defect
+                    result = self.rich_evolution * self.transition_probability(Zk=Zr, Zl=Zp, ikX=ir,
+                                                                               ikY=max(Zr - ir, 0), ilY=max(Zp - ip, 0),
+                                                                               fkX=fitness[3], fkY=fitness[1],
+                                                                               flY=fitness[0])
 
-                    elif transition == (0, 0, 0, 0):
-                        # print("pas de transition")
-                        result = 1 - sum(transitions_results.values())
+                elif transition == (0, 0, 1, -1):
+                    # print("Transition kX = poor defect -> kY = poor coop")
+                    # k = pauvre, l = riche, X = defect, Y = coop
+                    result = self.poor_evolution * self.transition_probability(Zk=Zp, Zl=Zr,
+                                                                               ikX=max(Zp - ip, 0), ikY=max(ip, 0), ilY=ir,
+                                                                               fkX=fitness[0], fkY=fitness[2],
+                                                                               flY=fitness[3])
 
-                    self.W[transition_index, index] = result
+                elif transition == (0, 0, -1, 1):
+                    # print("Transition kX = poor coop -> kY = poor defect")
+                    # k = pauvre, l = riche, X = coop, Y = defect
+                    result = self.poor_evolution * self.transition_probability(Zk=Zp, Zl=Zr, ikX=ip,
+                                                                               ikY=max(Zp - ip, 0), ilY=max(Zr - ir, 0),
+                                                                               fkX=fitness[2], fkY=fitness[0],
+                                                                               flY=fitness[1])
 
-                transitions_results[len(transitions_results)] = result
+                elif transition == (0, 0, 0, 0):
+                    # print("pas de transition")
+                    result = 1 - sum(transitions_results.values())
 
-            self.populations_transitions_results[(ir, ip)] = transitions_results
+                self.W[transition_index, index] = result
 
-        else:
-            C_pop = pop_config
-            fitness = self.calculate_fitness(C_pop, 0)
+            transitions_results[len(transitions_results)] = result
 
-            population_transitions = [
-                1,  # kX = defect -> kY = coop
-                -1,  # kX = coop -> kY = defect
-                0,  # no transi
-            ]
-
-            transitions_results = {}
-
-            for transition in population_transitions:
-                C_pop_prime = C_pop + transition
-                result = 0
-
-                if 0 <= C_pop_prime <= self.population_size:
-
-                    if transition == 1:
-                        # print("")
-                        # print("Transition kX = defect -> kY = coop")
-                        # k = rich, l = poor, X = defect, Y = coop
-                        result = self.rich_evolution * self.transition_probability(Zk=self.population_size, Zl=0,
-                                                                                   ikX=C_pop, ikY=self.population_size-C_pop, ilY=0,
-                                                                                   fkX=fitness[1], fkY=fitness[0],
-                                                                                   flY=0)
-
-                    elif transition == -1:
-                        # print("Transition kX = coop -> kY = defect")
-                        # k = rich, l = poor, X = coop, Y = defect
-                        result = self.rich_evolution * self.transition_probability(Zk=self.population_size, Zl=0, ikX=C_pop,
-                                                                                   ikY=self.population_size-C_pop, ilY=0,
-                                                                                   fkX=fitness[0], fkY=fitness[1],
-                                                                                   flY=0)
-
-                    elif transition == 0:
-                        # print("no transi")
-                        result = 1 - sum(transitions_results.values())
-
-                    self.W[C_pop_prime, C_pop] = result
-
-                transitions_results[len(transitions_results)] = result
-
-            self.populations_transitions_results[C_pop] = transitions_results
+        self.populations_transitions_results[(ir, ip)] = transitions_results
 
     def contribution_reached(self, jR, jP):
-        if self.wealth_inequality:
-            if self.rich_contribution * jR + self.poor_contribution * jP >= self.threshold:
-                return 1
-            else:
-                return 0
+        if self.rich_contribution * jR + self.poor_contribution * jP >= self.threshold:
+            return 1
         else:
-            if self.contribution * jR >= self.threshold:
-                return 1
-            else:
-                return 0
+            return 0
 
     def calculate_ag(self, iR, iP):
         Z = self.population_size
         N = self.group_size
-        if self.wealth_inequality:
-            # Multivariate hypergeometric sampling (fitness equations) to compute the (average) fraction of groups that
-            # reach a total of Mcb in contributions
-            return sum(comb(iR, jR) * comb(iP, jP) * comb(Z - iR - iP, N - jR - jP) * self.contribution_reached(jR, jP)
-                       for jR in range(N + 1) for jP in range(N + 1)) / comb(Z, N)
-        else:
-            C_pop = iR
-            return sum(comb(C_pop, C_group) * comb(Z - C_pop, N - C_group) * self.contribution_reached(C_group, 0)
-                       for C_group in range(N + 1)) / comb(Z, N)
+        # Multivariate hypergeometric sampling (fitness equations) to compute the (average) fraction of groups that
+        # reach a total of Mcb in contributions
+        return sum(comb(iR, jR) * comb(iP, jP) * comb(Z - iR - iP, N - jR - jP) * self.contribution_reached(jR, jP)
+                   for jR in range(N + 1) for jP in range(N + 1)) / comb(Z, N)
 
     @staticmethod
     def __str__(self) -> str:
@@ -695,31 +662,30 @@ class ClimateGame:
 
 
 if __name__ == '__main__':
-    population_size = 100
-    nb_rich = 20
-    group_size = 6
-    rich_endowment = 1.7
-    poor_endowment = 0.3
+    population_size = 200
+    nb_rich = 40
+    group_size = 8
+    rich_endowment = 1
+    poor_endowment = 1
 
     fraction_endowment = 0.1
     homophily = 0
-    risk = 0.3
-    M = 3  # Between 0 and group_size
+    risk = 0.6
+    M = 4  # Between 0 and group_size
 
-    mu = 1 / population_size
-    beta = 5
+    mu = 1/population_size
+    beta = 6
 
     Game = ClimateGame(popuplation_size=population_size, group_size=group_size, nb_rich=nb_rich,
                        fraction_endowment=fraction_endowment, homophily=homophily, risk=risk, M=M,
                        rich_endowment=rich_endowment, poor_endowment=poor_endowment, mu=mu, beta=beta)
 
-    #Game.play()
     #Game.GraphStationaryDistribution()
-
-    #Game.GraphOnePopEvolution(evolving_population="P", ratio_cooperators=[.1, .5, .9], rich_endowments=[1.35, 1.75])
-    #Game.GraphThresholdUncertainty(threshold_uncertainties=[0, 2.75])
-    #Game.Graph_ng_risk(homophilies=[0, 0, 0], wealth_inequalites=[True, True, False], threshold_uncertainties=[0, 2.75],
-    #                   Ns=[6, 8], Ms=[3, 4])
+    #Game.GraphOnePopEvolution(evolving_population="R", ratio_cooperators=[.1, .5, .9], rich_endowments=[1.35, 1.75])
+    Game.GraphThresholdUncertainty(threshold_uncertainties=[0, 2.75])
+    #Game.GraphStationaryDistribution_obstinate(obstinate_players_ratio=[0, 0, 0.1, 0])
+    # Game.Graph_ng_risk(homophilies=[0, 1, 0], wealth_inequalites=[True, True, False], threshold_uncertainties=[0, 0, 0],
+    #                    Ns=[6, 6, 6], Ms=[3, 3, 3])
 
 
 
