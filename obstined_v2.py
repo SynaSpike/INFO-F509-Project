@@ -94,71 +94,32 @@ def T(iR, iP, X, k,r,h,mu,beta,Mcb):
 
 def transition(iR,iP,Zr,Zp,iR_obs, iP_obs,r,h,mu,beta,Mcb):
 
-    if iR < iR_obs:
+    if iR < Zr:
+        TiR_gain = T(iR, iP, 'D', 'R',r,h,mu,beta,Mcb)
+    else:
+        TiR_gain = 0  # not possible to have more rich cooperators than rich individuals in the population
 
-        TiR_loss = 0
-
-        if iR < Zr:
-            TiR_gain = T(iR, iP, 'D', 'R', r, h, mu, beta, Mcb)
-        else:
-            TiR_gain = 0  # not possible to have more rich cooperators than rich individuals in the population
-
-        if iP < Zp:
-            TiP_gain = T(iR, iP, 'D', 'P', r, h, mu, beta, Mcb)
-        else:
-            TiP_gain = 0
-
-        if iP > 0:
-            TiP_loss = T(iR, iP, 'C', 'P', r, h, mu, beta, Mcb)
-        else:
-            TiP_loss = 0
-
-    elif iP < iP_obs:
-
-        TiP_loss = 0
-
-        if iR < Zr:
-            TiR_gain = T(iR, iP, 'D', 'R', r, h, mu, beta, Mcb)
-        else:
-            TiR_gain = 0  # not possible to have more rich cooperators than rich individuals in the population
-
-        if iR > 0:
-            TiR_loss = T(iR, iP, 'C', 'R', r, h, mu, beta, Mcb)
-        else:
-            TiR_loss = 0
-
-        if iP < Zp:
-            TiP_gain = T(iR, iP, 'D', 'P', r, h, mu, beta, Mcb)
-        else:
-            TiP_gain = 0
+    if iR > iR_obs:
+        TiR_loss = T(iR, iP, 'C', 'R',r,h,mu,beta,Mcb)
 
     else:
-        if iR < Zr:
-            TiR_gain = T(iR, iP, 'D', 'R',r,h,mu,beta,Mcb)
-        else:
-            TiR_gain = 0  # not possible to have more rich cooperators than rich individuals in the population
+        TiR_loss = 0
 
-        if iR > 0:
-            TiR_loss = T(iR, iP, 'C', 'R',r,h,mu,beta,Mcb)
+    if iP < Zp:
+        TiP_gain = T(iR, iP, 'D', 'P',r,h,mu,beta,Mcb)
+    else:
+        TiP_gain = 0
 
-        else:
-            TiR_loss = 0
-
-        if iP < Zp:
-            TiP_gain = T(iR, iP, 'D', 'P',r,h,mu,beta,Mcb)
-        else:
-            TiP_gain = 0
-
-        if iP > 0:
-            TiP_loss = T(iR, iP, 'C', 'P',r,h,mu,beta,Mcb)
-        else:
-            TiP_loss = 0
+    if iP > iP_obs:
+        TiP_loss = T(iR, iP, 'C', 'P',r,h,mu,beta,Mcb)
+    else:
+        TiP_loss = 0
 
     return[TiR_gain, TiR_loss, TiP_gain, TiP_loss]
 
 
-def iV(Zr,Zp):
-    iV = [(iR, iP) for iP in range(Zp + 1) for iR in range(Zr + 1)]  # list of states
+def iV(Zr,Zp, iR_obs, iP_obs):
+    iV = [(iR, iP) for iP in range(iP_obs,Zp + 1) for iR in range(iR_obs,Zr + 1)]  # list of states
     return iV
 
 def transition_matrix(iV,Zr,Zp,iR_obs,iP_obs,r,h,mu,beta,Mcb):
@@ -166,6 +127,7 @@ def transition_matrix(iV,Zr,Zp,iR_obs,iP_obs,r,h,mu,beta,Mcb):
     #transition probability matrix between population states (iR, iP) -> (iR', iP')
 
     i2idx = {i: idx for idx, i in enumerate(iV)}  # reverse dictionary from state to index of W below
+    print(i2idx)
     len_iV = len(iV)
     W = np.zeros((len_iV, len_iV))
 
@@ -180,7 +142,7 @@ def transition_matrix(iV,Zr,Zp,iR_obs,iP_obs,r,h,mu,beta,Mcb):
         else:
             a = 0
 
-        if iR > 0:
+        if iR > iR_obs:
             b = trans[1]
             W[i2idx[(iR - 1, iP)], idx] = b
         else:
@@ -192,7 +154,7 @@ def transition_matrix(iV,Zr,Zp,iR_obs,iP_obs,r,h,mu,beta,Mcb):
         else:
             c= 0
 
-        if iP > 0:
+        if iP > iP_obs:
             d = trans[3]
             W[i2idx[(iR, iP - 1)], idx] = d
         else:
@@ -337,7 +299,7 @@ def plot_fig1(suffix,mu,beta):
     plt.close()
 
 
-def new_plot(suffix, Zr, Zp,grad,P,h, nG):
+def new_plot(suffix, Zr, Zp, iV,grad,P,h, nG):
 
     fig, ax = plt.subplots(figsize=(3, 6))
 
@@ -350,10 +312,8 @@ def new_plot(suffix, Zr, Zp,grad,P,h, nG):
         for ir in range(Zr + 1):
             y.append(ip)
 
-
-
     customcmap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#DCDCDC", "black"])
-    plt.scatter(x, y, c=P, alpha=0.85, cmap=customcmap, edgecolors="#A9A9A9", s = 2, linewidths=0.2)
+    plt.scatter(x, y, c=P, alpha=0.85, cmap=customcmap, edgecolors="#A9A9A9")
 
     iRV = list(range(Zr + 1))
     iPV = list(range(Zp + 1))
@@ -361,8 +321,6 @@ def new_plot(suffix, Zr, Zp,grad,P,h, nG):
     colors = np.zeros((Zp + 1, Zr + 1))
     grad_iR = grad[0]
     grad_iP = grad[1]
-
-    colors = abs(grad[0]) + abs(grad[1])
 
     customcolormap2 = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#610484", "#5a2293",
                                                                                      "#5340a1", "#366695", "#128f81",
@@ -384,24 +342,18 @@ def new_plot(suffix, Zr, Zp,grad,P,h, nG):
         os.remove(strFile)  # Opt.: os.system("rm "+strFile)
     plt.savefig(strFile)
     plt.savefig(suffix + '.pdf')
-
-    strFile = suffix + '.svg'
-    if os.path.isfile(strFile):
-        os.remove(strFile)  # Opt.: os.system("rm "+strFile)
-    plt.savefig(strFile)
-    plt.savefig(suffix + '.svg')
     plt.close()
 
 ###################### Parameters ############################
 
 Z = 200 #Number of individuals in the population
-Zr = 100 #Number of rich individuals in the population
+Zr = 40 #Number of rich individuals in the population
 Zp = Z - Zr #Number of poor individuals in the population
 N = 6 #groups of size N
 
 #Initial endowment (br > bp)
-br = 1.7 #Initial endowment of the rich
-bp = 0.3 #Initial endowment of the poor
+br = 2.5 #Initial endowment of the rich
+bp = 0.625 #Initial endowment of the poor
 b_hat = (br*Zr + bp*Zp) / Z #Average endowment of the population
 
 #Contributions
@@ -413,36 +365,25 @@ Cp = c*bp #Contribution of the poor Cs
 M = 3 #positive integer between O and N
 Mcb = M*c*b_hat #Threshold  for the target to be met
 
-#r = 0.2 #Perception of risk (varying between 0 and 1)
-#h = 0 #Homophily parameter (varying between 0 and 1)
+r = 0.2 #Perception of risk (varying between 0 and 1)
+h = 1 #Homophily parameter (varying between 0 and 1)
         #When h = 1, individuals are restricted to influence by those of the same wealth status
         #When h = 0, no wealth discrimination takes place
 mu = (1/Z) #if mu = 1 --> individu does not change to strategy
 beta = 5
 
 iR_obs = 0
-iP_obs = 0
+iP_obs = round(Zp/10)
 
 ######################### Main code #########################
-'''iV = iV(Zr,Zp)
+
+iV = iV(Zr,Zp,iR_obs,iP_obs)
+print(iV)
 W = transition_matrix(iV,Zr,Zp,iR_obs,iP_obs,r,h,mu,beta,Mcb)
 grad = gradient(iV, iR_obs,iP_obs,r,h,mu,beta,Mcb)
 p = p(W)
 nG = nG(p,iV,Mcb)
 P = P(p, iV)
-new_plot('figure_S2A',Zr,Zp,grad,P,h,nG)'''
+new_plot('test_new_plot_obst',Zr,Zp,iV,grad,P,h,nG)
 
 
-combo = [['figure_S2A', 0,0.2],['figure_S2B', 0.7,0.2],['figure_S2C', 1,0.2],['figure_S2D', 0,0.3],['figure_S2E', 0.7,0.3],['figure_S2F', 1,0.3]]
-for elem in combo:
-    suffix = elem[0]
-    h = elem[1]
-    r = elem[2]
-    iv = iV(Zr, Zp)
-    W = transition_matrix(iv, Zr, Zp, iR_obs, iP_obs, r, h, mu, beta, Mcb)
-    grad = gradient(iv, iR_obs, iP_obs, r, h, mu, beta, Mcb)
-    pi = p(W)
-    ng = nG(pi, iv, Mcb)
-    Pi = P(pi, iv)
-    new_plot(suffix, Zr, Zp, grad, Pi, h, ng)
-    print(suffix + 'finished')
