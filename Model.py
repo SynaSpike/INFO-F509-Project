@@ -7,6 +7,7 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 import random
 from typing import Union, Any
 
+import matplotlib.colors
 from scipy.special import comb as comb
 
 import egttools
@@ -168,7 +169,38 @@ class ClimateGame:
 
         fig, ax = plt.subplots(figsize=(3, 6))
 
-        im = ax.imshow(P, origin='lower', cmap='coolwarm_r', alpha=0.5)
+        x=[]
+        for ip in range(ZP + 1):
+            for ir in range(ZR + 1):
+                x.append(ir)
+        y=[]
+        for ip in range(ZP + 1):
+            for ir in range(ZR + 1):
+                y.append(ip)
+
+        customcmap = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#DCDCDC", "black"])
+        plt.scatter(x, y, c=P, alpha=0.85, cmap=customcmap, edgecolors="#A9A9A9")
+
+        iRV = list(range(ZR + 1))
+        iPV = list(range(ZP + 1))
+
+        grad_ir_array = np.zeros((ZP + 1, ZR + 1))
+        grad_ip_array = np.zeros((ZP + 1, ZR + 1))
+        colors = np.zeros((ZP + 1, ZR + 1))
+
+        for index, gradient in enumerate(grad_iR):
+            ir, ip = self.populations_configurations[index]
+            grad_ir_array[ip][ir] = gradient
+            colors[ip][ir] += abs(gradient)
+
+        for index, gradient in enumerate(grad_iP):
+            ir, ip = self.populations_configurations[index]
+            grad_ip_array[ip][ir] = gradient
+            colors[ip][ir] += abs(gradient)
+
+        customcolormap2 = matplotlib.colors.LinearSegmentedColormap.from_list("custom", ["#610484", "#5a2293",
+        "#5340a1", "#366695", "#128f81", "#22a967", "#67b448", "#9fae31", "#b17630", "#c33d30"])
+        ax.streamplot(iRV, iPV, grad_ir_array, grad_ip_array, color=colors, density=.5, cmap=customcolormap2)
 
         ax.set_xlim((-1, ZR + 1))
         ax.set_ylim((-1, ZP + 1))
@@ -298,12 +330,12 @@ class ClimateGame:
             wealth_inequality = wealth_inequalites[i]
 
             if wealth_inequality:
-                self.rich = population_rich
-                self.poor = self.population_size-population_rich
+                self.rich = int(population_rich)
+                self.poor = int(self.population_size-population_rich)
                 self.update_endowments(rich_endowment=rich_endowment)
             else:
-                self.rich = self.population_size/2
-                self.poor = self.rich
+                self.rich = int(self.population_size/2)
+                self.poor = int(self.rich)
                 self.update_endowments(rich_endowment=1)
 
             y = []
@@ -629,8 +661,8 @@ class ClimateGame:
 
 
 if __name__ == '__main__':
-    population_size = 200
-    nb_rich = 100
+    population_size = 100
+    nb_rich = 20
     group_size = 6
     rich_endowment = 1.7
     poor_endowment = 0.3
@@ -651,8 +683,10 @@ if __name__ == '__main__':
     Game.GraphStationaryDistribution()
     #Game.GraphOnePopEvolution(evolving_population="P", ratio_cooperators=[.1, .5, .9], rich_endowments=[1.35, 1.75])
     #Game.GraphThresholdUncertainty(threshold_uncertainties=[0, 2.75])
-    # Game.Graph_ng_risk(homophilies=[0, 0], wealth_inequalites=[True, True], threshold_uncertainties=[0, 2.75],
-    #                    Ns=[8, 8], Ms=[4, 4])
+    #Game.Graph_ng_risk(homophilies=[0, 0], wealth_inequalites=[True, True], threshold_uncertainties=[0, 2.75],
+    #                   Ns=[8, 8], Ms=[4, 4])
+
+
 
     # print(len(Game.sample(0.8)[32]))
 

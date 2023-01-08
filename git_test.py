@@ -115,7 +115,7 @@ fCR = lambda iR, iP: (1 / comb(Z - 1, N - 1)) * \
                      sum(sum(
                          comb(iR - 1, jR) * comb(iP, jP) * comb(Z - iR - iP, N - 1 - jR - jP) * PiCR(jR + 1, jP)
                          for jP in range(N - jR)) for jR in range(N))
-es
+
 
 # poor cooperators
 fCP = lambda iR, iP: (1 / comb(Z - 1, N - 1)) * \
@@ -289,6 +289,10 @@ iPV = list(range(ZP + 1))
 # im = ax.imshow(P, extent=(0-0.5, ZR+0.5, 0-0.5, ZP+0.5), origin='lower', cmap='coolwarm_r')
 im = ax.imshow(P, origin='lower', cmap='coolwarm_r', alpha=0.5)
 # fig.colorbar(im)
+print(len(grad_iR))
+print(len(iRV))
+print(len(iPV))
+print(len(iRV), len(iPV), len(grad_iR), len(grad_iP))
 ax.quiver(iRV, iPV, grad_iR, grad_iP)
 
 # ax.quiver(iRV, iPV, np.zeros( (ZP+1, ZR+1) ), grad_iP)
