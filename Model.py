@@ -76,11 +76,8 @@ class ClimateGame:
         print("Calculating ng...")
         ng = 0
         for index, P_bar_i in enumerate(self.p):
-            if self.wealth_inequality:
-                ir, ip = self.populations_configurations[index]
-                ng += P_bar_i * self.calculate_ag(ir, ip)
-            else:
-                ng += P_bar_i * self.calculate_ag(index, 0)
+            ir, ip = self.populations_configurations[index]
+            ng += P_bar_i * self.calculate_ag(ir, ip)
 
         self.ng = ng
 
@@ -651,8 +648,8 @@ class ClimateGame:
 
 
 if __name__ == '__main__':
-    population_size = 200
-    nb_rich = 40
+    population_size = 25
+    nb_rich = 10
     group_size = 8
     rich_endowment = 1
     poor_endowment = 1
