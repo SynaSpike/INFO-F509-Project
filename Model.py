@@ -18,6 +18,7 @@ import math
 from scipy.linalg import eig as eig
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 class ClimateGame:
@@ -202,6 +203,24 @@ class ClimateGame:
         "#5340a1", "#366695", "#128f81", "#22a967", "#67b448", "#9fae31", "#b17630", "#c33d30"])
         ax.streamplot(iRV, iPV, grad_ir_array, grad_ip_array, color=colors, density=.5, cmap=customcolormap2)
 
+        # sm = matplotlib.cm.ScalarMappable(cmap=customcmap)
+        # sm.set_array([])
+        #
+        # cbar1 = plt.colorbar(sm, ax=ax)
+        # cbar1.ax.get_yaxis().set_ticks([])
+        # cbar1.ax.get_yaxis().labelpad = 15
+        # cbar1.ax.text(1.1, 0, "$0$")
+        # cbar1.ax.text(1.1, 0.975, "$p^{max}_k$")
+        #
+        # sm = matplotlib.cm.ScalarMappable(cmap=customcolormap2)
+        # sm.set_array([])
+        #
+        # cbar2 = plt.colorbar(sm, ax=ax)
+        # cbar2.ax.get_yaxis().set_ticks([])
+        # cbar2.ax.get_yaxis().labelpad = 15
+        # cbar2.ax.text(1.1, 0, "$0$")
+        # cbar2.ax.text(1.1, 0.975, "$∇^{max}_i$")
+
         ax.set_xlim((-1, ZR + 1))
         ax.set_ylim((-1, ZP + 1))
         ax.set_xlabel(r'rich cooperators, $i_R$')
@@ -216,6 +235,13 @@ class ClimateGame:
         self.rich_evolution = evolving_population == "R" and 1 or 0
         self.poor_evolution = 1 - self.rich_evolution
 
+        fig = plt.figure()
+        ax = plt.subplot(111)
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+
+        colors = ["orange", "blue", "green", "red", "purple"]
+
         x = []
         other_pop_size = self.population_size - evolv_pop_size
 
@@ -229,7 +255,7 @@ class ClimateGame:
 
             evolv_pop_grad = evolving_population == "R" and self.gradient_rich or self.gradient_poor
 
-            for ratio in ratio_cooperators:
+            for index, ratio in enumerate(ratio_cooperators):
                 other_pop_coop = int(other_pop_size * ratio)
                 y = []
                 for evolv_pop_coop in range(evolv_pop_size):
@@ -237,10 +263,18 @@ class ClimateGame:
                     index_ = self.populations_configurations_index[pop_config]
                     y.append(evolv_pop_grad[index_])
 
-                labeltext = str(ratio * 100)+"%"
-                plt.plot(x, y, rich_endowment == rich_endowments[0] and '-' or '--', label=labeltext)
+                if rich_endowment == rich_endowments[0]:
+                    labeltext = str(int(ratio * 100))+"%"
+                    plt.plot(x, y, '-', label=labeltext, color=colors[index])
+                else:
+                    plt.plot(x, y, '--', color=colors[index])
 
-        plt.legend(loc='best')
+        plt.plot([], [], '-', label="$b_R$ > $b_P$", color="black")
+        plt.plot([], [], '--', label="$b_R$ >> $b_P$", color="black")
+        plt.legend(title="fraction of $C_P$", loc='center left', bbox_to_anchor=(1, 0.5), frameon=False)
+        popu = evolving_population == "R" and "rich" or "poor"
+        ax.set_xlabel(r'fraction of '+popu+' cooperators, $i_'+evolving_population+'/Z_'+evolving_population+'$')
+        ax.set_ylabel(r'gradient of selection, $∇_i$('+popu+')')
         plt.show()
 
     def GraphThresholdUncertainty(self, threshold_uncertainties):
@@ -679,12 +713,13 @@ if __name__ == '__main__':
                        fraction_endowment=fraction_endowment, homophily=homophily, risk=risk, M=M,
                        rich_endowment=rich_endowment, poor_endowment=poor_endowment, mu=mu, beta=beta)
 
-    Game.play()
-    Game.GraphStationaryDistribution()
+    #Game.play()
+    #Game.GraphStationaryDistribution()
+
     #Game.GraphOnePopEvolution(evolving_population="P", ratio_cooperators=[.1, .5, .9], rich_endowments=[1.35, 1.75])
     #Game.GraphThresholdUncertainty(threshold_uncertainties=[0, 2.75])
-    #Game.Graph_ng_risk(homophilies=[0, 0], wealth_inequalites=[True, True], threshold_uncertainties=[0, 2.75],
-    #                   Ns=[8, 8], Ms=[4, 4])
+    #Game.Graph_ng_risk(homophilies=[0, 0, 0], wealth_inequalites=[True, True, False], threshold_uncertainties=[0, 2.75],
+    #                   Ns=[6, 8], Ms=[3, 4])
 
 
 
