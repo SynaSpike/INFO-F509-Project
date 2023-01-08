@@ -5,13 +5,13 @@ Climate policies under wealth inequality. Proc. Natl Acad. Sci. USA 111, 2212-22
 (doi:10.1073/pnas.1323479111) Crossref, PubMed, ISI, Google Scholar
 """
 import random
-from typing import Union, Any
 import matplotlib.colors
-from scipy.special import comb as comb
 import numpy as np
 import math
-from scipy.linalg import eig as eig
 import matplotlib.pyplot as plt
+from typing import Union, Any
+from scipy.special import comb as comb
+from scipy.linalg import eig as eig
 
 
 class ClimateGame:
@@ -60,16 +60,16 @@ class ClimateGame:
         print("Calculating eigen values...")
         eigs, leftv, rightv = eig(self.W, left=True, right=True)
         print("Getting the index of the dominant eigenvalue...")
-        domIdx = np.argmax(np.real(eigs))  # index of the dominant eigenvalue
+        domIdx = np.argmax(np.real(eigs))
         print("Getting the dominant eigenvalue...")
-        L = np.real(eigs[domIdx])  # the dominant eigenvalue
+        L = np.real(eigs[domIdx])
         print("Getting the right-eigenvector...")
-        p = np.real(rightv[:, domIdx])  # the right-eigenvector is the relative proportions in classes at ss
+        p = np.real(rightv[:, domIdx])
         print("pmax =", max(p))
         print("Normalising the relative proportions...")
 
         p = p / np.sum(p)
-        self.p = p  # normalise it
+        self.p = p
         print("pmax_norm =", max(p))
 
     def get_ng(self):
@@ -106,15 +106,10 @@ class ClimateGame:
                 populations_configurations_index[(ir, ip)] = index
                 index += 1
 
-        # if self.obstinate_players_ratio:
-        #     self.rich = self.rich - (self.obstinate_players["RC"] + self.obstinate_players["RD"])
-        # if self.obstinate_players_ratio:
-        #     self.poor = self.poor - (self.obstinate_players["PC"] + self.obstinate_players["PD"])
-
         self.W = np.zeros((index, index))
         self.populations_configurations = populations_configurations
         self.populations_configurations_index = populations_configurations_index
-        self.populations_transitions_results = {}  # moyen de calculer les gradients de selections a partir de ca si nécessaire
+        self.populations_transitions_results = {}
         self.totalindex = index
 
         print("Calculating population transitions...")
@@ -124,11 +119,12 @@ class ClimateGame:
         self.get_p()
         self.get_ng()
 
-        # 1 == (kX = rich defect -> kY = rich coop)
-        # 2 == (kX = rich coop -> kY = rich defect)
-        # 3 == (kX = poor defect -> kY = poor coop)
-        # 4 == (kX = poor coop -> kY = poor defect)
-        # 5 == (no transi)
+        # result[index]
+        # 0 == (kX = rich defect -> kY = rich coop)
+        # 1 == (kX = rich coop -> kY = rich defect)
+        # 2 == (kX = poor defect -> kY = poor coop)
+        # 3 == (kX = poor coop -> kY = poor defect)
+        # 4 == (no transi)
 
         self.gradient_selection = [0 for i in range(self.totalindex)]
         self.gradient_rich = [0 for i in range(self.totalindex)]
@@ -155,9 +151,6 @@ class ClimateGame:
         for idx, pi in enumerate(self.p):
             iR, iP = iV[idx]
             P[iP, iR] = pi
-
-        # plot
-        # ---
 
         fig, ax = plt.subplots(figsize=(3, 6))
 
@@ -244,9 +237,6 @@ class ClimateGame:
         for idx, pi in enumerate(self.p):
             iR, iP = iV[idx]
             P[iP, iR] = pi
-
-        # plot
-        # ---
 
         fig, ax = plt.subplots(figsize=(3, 6))
 
@@ -458,8 +448,7 @@ class ClimateGame:
 
         threshold_value = random.uniform(self.threshold - self.threshold_uncertainty, self.threshold + self.threshold_uncertainty)
 
-        k = self.rich_contribution * group_composition[3] + self.poor_contribution * group_composition[
-            2] - threshold_value
+        k = self.rich_contribution * jr + self.poor_contribution * jp - threshold_value
 
         heav = k >= 0 and 1 or 0
 
@@ -680,29 +669,11 @@ if __name__ == '__main__':
                        fraction_endowment=fraction_endowment, homophily=homophily, risk=risk, M=M,
                        rich_endowment=rich_endowment, poor_endowment=poor_endowment, mu=mu, beta=beta)
 
-    #Game.GraphStationaryDistribution()
-    #Game.GraphOnePopEvolution(evolving_population="R", ratio_cooperators=[.1, .5, .9], rich_endowments=[1.35, 1.75])
-    Game.GraphThresholdUncertainty(threshold_uncertainties=[0, 2.75])
-    #Game.GraphStationaryDistribution_obstinate(obstinate_players_ratio=[0, 0, 0.1, 0])
+    # Game.GraphStationaryDistribution()
+    # Game.GraphOnePopEvolution(evolving_population="R", ratio_cooperators=[.1, .5, .9], rich_endowments=[1.35, 1.75])
+    # Game.GraphThresholdUncertainty(threshold_uncertainties=[0, 2.75])
+    # Game.GraphStationaryDistribution_obstinate(obstinate_players_ratio=[0, 0, 0.1, 0])
     # Game.Graph_ng_risk(homophilies=[0, 1, 0], wealth_inequalites=[True, True, False], threshold_uncertainties=[0, 0, 0],
     #                    Ns=[6, 6, 6], Ms=[3, 3, 3])
 
 
-
-    # print(len(Game.sample(0.8)[32]))
-
-    # for i in range(6):
-    # print(Game.sample(0.8)[32][i].get_wealth())
-
-    # a = Game.sample(0.8)[32]
-    # print(len(a))
-    # print(Game.get_comp(a))
-
-    # print(Game.payoffs_[:,32])
-
-    # print("fitness:", Game.calculate_fitness(20, 80))
-    # [0.5271957179851917, 2.108782871940767, 0.49202061373114003, 2.0751206672259306]
-
-    # print(Game.calculate_payoffs())
-
-    # print("Results[PC_to_PD, PD_to_PC, RC_to_RD, RD_to_RC]:", Game.transition_probabilities(ir=20, ip=60))
